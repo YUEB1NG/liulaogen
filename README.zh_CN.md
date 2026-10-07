@@ -2,6 +2,8 @@
 
 # liulaogen
 
+在线网站：**https://quyue.pythonanywhere.com**（PythonAnywhere 免费托管）。
+
 刘老根大舞台名单手册：FoloToy AI Passport 固件与手机排班网站完整开源。
 
 **Passport 输入 Wi-Fi 密码 → 网站配对 → 网页选已发布名单 → 上传到设备 → 确认保存回执。**
@@ -21,7 +23,7 @@ python server.py
 
 打开 http://127.0.0.1:8766，私下读取 `runtime/credentials.json` 获取初始登录信息，
 不要提交或分享该文件。公网使用见部署说明；GitHub Pages 无法运行 Python 后端。
-只有实际服务地址已记录并检查后，才算完成公网部署。
+上方网站已完成 HTTPS、登录、手机布局和模拟设备配对检查，真实设备验收见验证状态。
 
 ## 固件
 

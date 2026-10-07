@@ -2,6 +2,8 @@
 
 # liulaogen
 
+Live website: **https://quyue.pythonanywhere.com** (free PythonAnywhere hosting).
+
 An open-source cast-lineup handbook for FoloToy AI Passport, with a mobile website
 for managing actor profiles and explicitly uploading published lineups.
 
@@ -23,8 +25,9 @@ python server.py
 
 Open http://127.0.0.1:8766 and read `runtime/credentials.json` privately for initial
 login. Never commit or share that file. For hosted service use the hosting guide;
-GitHub Pages cannot run the Python backend. No public deployment is claimed until
-a live service URL is recorded and checked.
+GitHub Pages cannot run the Python backend. The live site above passed HTTPS,
+login, mobile layout and simulated device pairing checks; see validation status
+for the remaining physical-device acceptance.
 
 ## Firmware
 

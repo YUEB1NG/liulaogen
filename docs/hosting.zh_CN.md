@@ -30,7 +30,7 @@ GitHub 保存完整源码，PythonAnywhere 免费账号在同一 HTTPS 地址运
 保持一个工作进程，因为内存会话、在线状态和文件锁都属于单进程。私密备份要包含数据与凭据。
 
 本机执行 `python -m unittest -v test_api test_device_link test_hosted test_wsgi`，
-47 项检查包含经实际 WSGI 服务执行的完整网站与设备 HTTP 测试。PythonAnywhere 的真正创建、
+49 项检查包含经实际 WSGI 服务执行的完整网站与设备 HTTP 测试。PythonAnywhere 的真正创建、
 证书、用户网络可达性以及 Passport 实际上传仍须单独验收。
 
 参考：[免费限制](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/)、

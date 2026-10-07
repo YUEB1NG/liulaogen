@@ -38,7 +38,7 @@ Keep one web worker/process: in-memory sessions, presence and file-state locking
 are process-local. Private backups must include both state and credentials.
 
 `python -m unittest -v test_api test_device_link test_hosted test_wsgi` executes
-47 checks locally, including the full existing website/device HTTP suite through
+49 checks locally, including the full existing website/device HTTP suite through
 WSGI. Actual PythonAnywhere provisioning, certificates, reachability from the
 user's network and physical Passport upload remain separate deployment checks.
 

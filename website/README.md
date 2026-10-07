@@ -11,8 +11,10 @@ confirms success. The latest downloaded lineup remains usable offline.
 
 The supplied interface is preserved; device management is an added dialog. No
 travelling computer, phone renaming or 192.168.4.1 page is needed. A reachable HTTPS
-deployment is required away from the local test network. The domain is undecided;
-no public server has been deployed or tested. Firmware currently has no preset URL.
+deployment is available at https://quyue.pythonanywhere.com. Enter this root URL
+on Passport; the flashed firmware has no preset URL. Public HTTPS, browser login
+and simulated pairing/reload persistence have passed; real Passport upload remains
+to be checked. See [validation status](../docs/status.md).
 
 See [Run and deploy](DEPLOY.md). Start `python server.py` and open
 `http://127.0.0.1:8766` for local browser development. Runtime credentials stay local.
