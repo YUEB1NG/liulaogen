@@ -2,6 +2,8 @@
 
 # liulaogen
 
+固件与匹配 ELF/MAP：[Wi-Fi r4 下载](https://github.com/YUEB1NG/liulaogen/releases/tag/v0.1.0-liulaogen-wifi-r4)。
+
 在线网站：**https://quyue.pythonanywhere.com**（PythonAnywhere 免费托管）。
 
 刘老根大舞台名单手册：FoloToy AI Passport 固件与手机排班网站完整开源。

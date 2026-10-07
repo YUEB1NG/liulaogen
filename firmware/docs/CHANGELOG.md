@@ -56,3 +56,7 @@
 - Updated software-design and project README references for the new documentation structure.
 - Added the documentation catalog and task-triggered routing based on the earlier repository model.
 - Added bilingual contribution, code-of-conduct, security, and support documents tailored to this ESP-IDF and fork workflow.
+
+## v0.1.0-liulaogen-wifi-r4 - 2026-10-08
+
+- Preserve the eight-city offline handbook; add on-device Wi-Fi password entry and explicit website pairing/lineup upload with saved receipts. Publish verified r4 merged firmware and matching debug artifacts. Firmware startup is verified; physical cloud upload remains pending.

@@ -2,6 +2,8 @@
 
 # liulaogen
 
+Firmware and matched ELF/MAP: [Wi-Fi r4 release](https://github.com/YUEB1NG/liulaogen/releases/tag/v0.1.0-liulaogen-wifi-r4).
+
 Live website: **https://quyue.pythonanywhere.com** (free PythonAnywhere hosting).
 
 An open-source cast-lineup handbook for FoloToy AI Passport, with a mobile website
