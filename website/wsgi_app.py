@@ -16,7 +16,9 @@ class Request(Handler):
         self.client_address=(environ.get('REMOTE_ADDR','unknown'),0)
         self.headers=Message()
         for name,value in environ.items():
-            if name.startswith('HTTP_'):
+            # uWSGI may expose these aliases as well as the canonical WSGI
+            # fields. They describe one header, not duplicate client headers.
+            if name.startswith('HTTP_') and name not in ('HTTP_CONTENT_TYPE','HTTP_CONTENT_LENGTH'):
                 self.headers[name[5:].replace('_','-')]=value
         for name in ('CONTENT_TYPE','CONTENT_LENGTH'):
             if environ.get(name):self.headers[name.replace('_','-')]=environ[name]

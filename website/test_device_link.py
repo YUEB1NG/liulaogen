@@ -38,7 +38,7 @@ class DeviceAPI(unittest.TestCase):
         self.assertIsNone(self.beat({'id':job['id'],'result':'saved'})[1]['job'])
         self.assertEqual(listing()['delivery']['status'],'saved')
         self.beat({'id':job['id'],'result':'failed'});self.assertEqual(listing()['delivery']['status'],'saved')
-        self.assertNotIn(self.bearer[7:],(self.folder/'state.json').read_text())
+        self.assertNotIn(self.bearer[7:],(self.folder/'state.json').read_text(encoding='utf8'))
     def test_pair_permissions_and_bad_requests(self):
         self.assertEqual(self.request('/api/devices')[0],401)
         self.assertEqual(self.request('/api/devices/claim',{'code':'A123B456'})[0],401)
