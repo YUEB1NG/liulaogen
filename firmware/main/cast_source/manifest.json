@@ -1,0 +1,12 @@
+{
+  "source": "/var/minis/shared/cuecards-v4",
+  "source_date": "2026-09-29",
+  "sha256": {
+    "data.json": "44d68406a545c678b0bb62ce73d3dceca26f5420338a87e762e5a2c0abaa3f4e",
+    "index.html": "6df3d77c8ba3610a84e8e0d2a87819472f05fa81dbf9fca8c253f46e74823870"
+  },
+  "cities": 7,
+  "venues": 8,
+  "actors": 28,
+  "glyph_count": 6875
+}

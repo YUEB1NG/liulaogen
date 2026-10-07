@@ -1,0 +1,23 @@
+[Unit]
+Description=AI Passport cast editor
+After=network.target
+
+[Service]
+Type=simple
+User=cast-online
+Group=cast-online
+WorkingDirectory=/opt/cast-online-web
+EnvironmentFile=/etc/cast-online.env
+Environment=PYTHONUTF8=1 PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 /opt/cast-online-web/server.py --host 127.0.0.1 --port 8766 --data-dir /var/lib/cast-online --public-origin https://${CAST_DOMAIN}
+StateDirectory=cast-online
+StateDirectoryMode=0700
+UMask=0077
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

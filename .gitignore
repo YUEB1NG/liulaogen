@@ -1,0 +1,14 @@
+**/build/
+**/managed_components/
+**/sdkconfig
+**/sdkconfig.old
+**/__pycache__/
+*.pyc
+**/runtime/
+**/credentials.json
+**/state.json
+**/*.raw.log
+.env
+.env.*
+*.pem
+*.key

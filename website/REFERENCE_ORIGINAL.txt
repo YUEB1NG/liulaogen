@@ -1,0 +1,127 @@
+# 刘老根大舞台 · AI Passport 在线排班
+
+## 运行
+
+仅需 Python 3.10+，没有 pip/npm、数据库或构建依赖。
+
+```sh
+cd /var/minis/workspace/cast-online-web
+python3 server.py
+```
+
+本机打开 http://127.0.0.1:8766 。默认仅监听 127.0.0.1，不会向局域网或公网开放。若端口已被当前实例占用，无需重复启动。
+
+初次启动生成 `runtime/credentials.json`（用户名与随机密码，权限0600）。用本机文件查看器读取并登录；不要复制到聊天或提交版本库。网页不会回显密码。重启使会话失效，凭据与排班持久保存。重置密码：停止服务，在本机删除该凭据文件后重启；会生成新随机密码。无需安装任何大型服务。
+
+```sh
+python3 -m unittest -v test_api
+```
+
+## 操作与范围
+
+1. 登录，选择日期、城市、午场/晚场。日期初值按 Asia/Shanghai 计算。
+2. 八城固定顺序：沈阳、哈尔滨、北京、长春、南京、泰安、临沂、大连。
+3. 每场默认5组，每组恰好2人。允许1–12组，最后一组有演员时移除需确认。
+4. 点姓名框搜索演员库。禁止同一场次重复演员；午/晚不同场次允许同一演员。跨城时间冲突因未提供场次具体起止时刻，不自动判断。
+5. “复制上次”优先复制该城市该场次最近较早日期的已发布阵容；不存在时提供2026-09-29历史阵容，必须主动确认。南京、临沂、大连没有可复制历史时明确提示404，不填假演员。源资料泰安午场3组、晚场5组分开处理。
+6. 保存草稿可暂留空位；提交不合法ID、伪造名字、重复演员、非法组数会拒绝。草稿只有登录管理员可读。
+7. “预览并发布”先保存草稿，再由服务端对该日期所有已保存城市/场次完整校验；缺名禁止预览与发布。预览列出全部发布内容和下一revision。
+8. 再点“确认发布”才写入设备可读取的独立快照。未安排的城市不会自动放入发布内容。后续草稿修改不影响已发布版本。
+9. 发布是该日期整体快照，不是仅当前选中的城市。避免误解，预览页会完整列出所有城市/场次。版本冲突409时保留当前页面内容，刷新前可先人工记录未保存修改。
+10. 用户工作流为18–20点人工发布；不强制锁死其他时间，不添加15分钟轮询、自动发布或即时推送。设备下次联网检查才获取。
+
+## 固件API契约
+
+### GET /api/lineup?date=YYYY-MM-DD
+
+公开只读。成功200，Content-Type application/json; charset=utf-8：
+
+```json
+{"schema_version":1,"date":"2026-10-03","revision":1,"venues":[{"id":"zhongjie","city":"沈阳","sessions":[{"id":"evening","label":"晚场","groups":[{"members":[{"id":"a_稳定姓名哈希","name":"演员甲"},{"id":"a_稳定姓名哈希2","name":"演员乙"}]}]}]}]}
+```
+
+示例只表达结构，不代表实际已发布数据。revision为每日期递增整数，从1开始。发布输出仅上述字段，城市按指定顺序排列。venue ID：zhongjie / haerbin / beijing / changchun / nanjing / taian / linyi / dalian。场次ID afternoon / evening，标签午场 / 晚场。
+
+未发布404，不是伪空成功：
+
+```json
+{"error":{"code":404,"message":"该日期尚未发布"}}
+```
+
+格式或日历日期错误422。固件应该显示“尚未发布”而不是将历史阵容冒充今日。无ETag/定时轮询约定；当前Cache-Control为no-store。
+
+### GET /api/actors
+
+公开只读：
+
+```json
+{"schema_version":1,"actors":[{"id":"a_...","name":"姓名","credits":["姓名｜作品 · 角色"],"highlights":[{"label":"舞台特色","text":"历史资料摘录","evidence":[],"context_names":["姓名","搭档"],"source_date":"2026-09-29"}],"source_notes":["资料局限与核验说明"]}],"notice":"历史资料，不代表今日阵容或节目承诺"}
+```
+
+演员初始历史ID仍保留原姓名SHA256前16位加a_，之后改名绝不重新计算；新演员采用UUID。ID为不透明稳定标识，设备不可从姓名推算。同名（Unicode NFKC + casefold，去首尾空白）及其他演员历史姓名拒绝409，不自动合并。credits只提取明确以该姓名开头的条目；highlights只归入正文出现该姓名的段落，保留同组context_names、evidence与来源日期，避免把整组资料直接当成某一个人的独有资料。无资料字段为空数组。全量原始历史文本保存在data/history.json作溯源，不通过HTTP静态暴露。
+
+### 管理接口
+
+| 路径 | 方式 | 权限 / 请求 |
+|---|---|---|
+| /api/config | GET | 公开；八城与场次选项 |
+| /api/login | POST | 同源JSON，username/password；返回csrf并写HttpOnly会话Cookie |
+| /api/session | GET | 需会话；返回username/csrf |
+| /api/logout | POST | 会话 + X-CSRF-Token |
+| /api/draft?date=... | GET | 会话；返回date/version/revision/venues |
+| /api/draft | POST | 会话 + CSRF；date/version/venues，返回新草稿version |
+| /api/previous?date=...&city=...&session=... | GET | 会话；返回source/date/groups |
+| /api/preview | POST | 会话 + CSRF；date/version/revision；完整校验并返回拟发布快照，不发布 |
+| /api/publish | POST | 会话 + CSRF；date/version/revision；发布当前已保存草稿 |
+
+所有POST要求Content-Type application/json和精确同源Origin。服务器复核草稿version及当前已发布revision；409阻止旧窗口覆盖。读取/写入均持进程内锁，临时文件0600 → flush/fsync → os.replace → 目录fsync，整个state（草稿、发布、审计记录）在同一原子替换中提交。写失败返回500，不返回伪成功。磁盘目录fsync失败可能处于持久性不确定状态，需管理员检查，不自动重试发布。
+
+## 安全边界与部署
+
+- 当前只做本地运行，公网部署尚未做；未开防火墙、未配置DNS/隧道/证书。
+- 127.0.0.1仅供本设备查看，其他手机、ESP32设备不能直接访问。需将本项目部署至真实服务器才能供异地手机/固件使用。
+- Python stdlib HTTP服务不是面向公网的成熟生产服务器。公网前必须加HTTPS反向代理、明确可信Host/Origin配置、Secure Cookie、访问日志脱敏、限流、备份/恢复、进程守护和并发容量测试。
+- 当前不信任X-Forwarded-*，也不自动接受公网Host。`--secure-cookie`仅是HTTPS集成辅助，不代表已经完成代理配置；代理需保留浏览器Origin并明确更新服务端允许域名，否则请求会403。不要简单监听0.0.0.0就视为安全上线。
+- 管理员会话随机高熵，固定8小时过期，HttpOnly/SameSite=Strict；修改还要求CSRF及Origin。登录每源地址每分钟最多5次尝试。凭据只存在本地0600文件，HTTP静态路径采取白名单，不返回运行目录。进程默认不记录请求正文或凭据。
+- 限制JSON体262144字节；Host白名单抗DNS rebinding；CSP、禁止iframe、nosniff。公开API有意公开已发布阵容与历史人物资料，不承载个人隐私。
+- 单管理员、单进程、单state文件；进程内锁不支持多个写进程共享runtime。若多人/高并发生产化，应迁移事务数据库与正式账号体系。
+- 手机系统挂起可能暂停本地服务；这不是永久在线服务。无后台定时器，无自动发布。
+- 修改或发布需要正常登录；不会把凭据放在ZIP、源代码、浏览器URL或报告中。
+- 不修改 /var/minis/workspace/ai-passport，不触碰另一个agent的固件。
+
+## 演员库管理（手动资料录入）
+
+登录后使用独立“演员库管理”入口，搜索、新增或编辑演员；填写姓名、作品角色（每行一条）、舞台特色（每行一条）、普通介绍。取消不保存；保存成功立即进入排班搜索。ID不可编辑，无照片/文件上传，无删除接口。已发布阵容绝不随资料更新自动改写。
+
+公开 GET /api/actors 仍保留 schema_version=1、actors 数组及原 id/name/credits/highlights/source_notes 的类型；增加 version、bio、user_highlights:[{label,text}]、user_edited、origin、aliases、historical_profile、updated_at（用户保存后）。原 highlights 保留历史来源、context_names、evidence、source_date，用户特色只进独立 user_highlights，不冒充历史证据。historical_profile 是初始完整只读来源副本；原始 data/history.json 未改。编辑后的 credits/bio/user_highlights 标记 user_edited=true，origin 区分 historical_library / user_entry。公开库用于公开演出资料，不应填写私人信息。
+
+写接口（均需登录、CSRF、精确同源Origin）：
+- POST /api/actors：新增返回201；body 为 name、credits、user_highlights、bio、version:0。
+- POST /api/actors/{id}：更新返回200；相同字段，version 必须等于演员当前版本。
+- 严格禁止额外/遗漏字段，不可提交ID、来源或证据。姓名1–60字（去首尾空白、不允许换行），credits最多30条/条1–300字，特色最多20项/label 1–60字/text 1–1000字，bio最多4000字。类型错误422，同名/历史姓名冲突409、版本冲突409、未知ID404。
+- 演员、草稿、发布、审计同一 state.json 原子写；保存成功后才替换内存索引。旧运行数据兼容自动迁移，不更改凭据或既有发布。
+
+**改名与旧草稿策略**：演员ID不变，旧名字进入aliases；草稿读取、历史/发布阵容复制均返回以ID查得的当前名副本。保存允许该ID当前名或已记录旧名，最终统一当前名，不接受任意伪造名字。每次修改演员资料，对所有引用该ID的已保存草稿版本加一，令旧窗口/旧预览提交409，避免预览后改名却无提示发布另一内容；重新加载、核对、再次预览才能发布。读取/复制不写入或改动历史已发布快照。未保存本地排班保留并提示冲突，可先记录后点“重新加载草稿”。
+
+资料供设备下次同步读取；这只表示网站API已就绪，不代表固件支持新字段或已经完成设备端联调。仅回环服务不能被真实外部设备访问。未修改 ai-passport 固件工程。
+
+## 验证结果
+
+`python3 -m unittest -v test_api`：13个测试全部通过。新增覆盖演员UUID、新演员立即保存排班/预览、重启保存、编辑与改名ID稳定、原始历史来源保留、旧发布快照隔离、旧草稿名字规范化、资料变化使旧预览失效、权限/Origin/CSRF、字段类型长度/重名拒绝、并发更新一次200一次409，以及新增和更新原子替换失败不改磁盘/内存。覆盖未发布404、演员资料与八城顺序、未登录/CSRF/跨站/Host拒绝、草稿隔离、预览不发布、发布revision、格式/日期/重复/缺名/组数校验、重启持久化及会话失效、私有文件不可HTTP访问、历史复制需主动请求、登录限流、坏JSON、模拟原子替换失败、并发乐观锁（一次200一次409）。测试独立临时目录，不会向真实日期发布。
+
+iOS内置浏览器390×844实测：页面加载、管理员登录、历史复制得到参考图十位演员、搜索王小虎返回唯一结果与已在本场提示、保存草稿、完整发布预览；随后公开GET仍404。截图自审炭灰底/蓝色主按钮/双演员列/日期城市场次/中文层级，无横向溢出。页面略高于一屏，可正常纵向滚动，底部非悬浮不遮挡内容。
+
+新增演员库浏览器验收在独立127.0.0.1:8767临时运行目录进行，不向真实runtime写入测试演员：390×844实测登录、新增四项资料并保存成功、排班即时搜索并选择保存、编辑改名后排班现名刷新、取消不保存、重名错误保留输入；无横向溢出，弹窗可纵向滚动。原本机8766保持50位真实历史演员，测试实例51位；测试未向真实日期发布。
+
+浏览器没有点击真实日期“确认发布”，以免把历史库当今日正式阵容；正式提交路径已通过自动API测试。未测真实ESP32联网、HTTPS公网、跨设备、弱网/断电恢复、读屏器、多浏览器兼容与生产压力；不宣称已完成。
+
+## 文件
+
+- server.py：Python stdlib后端
+- static/index.html、style.css、app.js：原生手机网页
+- data/history.json：历史演员源副本，不是已发布排班
+- test_api.py、test-results.txt：自动测试与结果
+- runtime/：私有本地凭据和持久化状态；不打包
+- 浏览器截图已在验收工具中生成并完成自审；本会话工具返回的截图资源未映射到shell文件系统，无法复制到ZIP，因此源码包不包含截图。
+
+源码ZIP不含凭据、会话、运行数据、日志、pycache或浏览器登录辅助脚本。解压后执行python3 server.py即可生成本机凭据并运行。
