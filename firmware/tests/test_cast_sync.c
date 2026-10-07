@@ -116,7 +116,10 @@ int main(void) {
     assert(cast_sync_init());
 #endif
     assert(!cached);
-    if(requests)vQueueDelete(requests);vQueueDelete(results);
+    if(requests) {
+        vQueueDelete(requests);
+    }
+    vQueueDelete(results);
 #ifdef CONFIG_CAST_WIFI_PORTAL
     requests=NULL;results=NULL;nvs_available=true;nvs_ok=true;http_code=200;complete=true;fault=0;
     vQueueDelete(profile_requests);vQueueDelete(profile_results);profile_requests=NULL;profile_results=NULL;

@@ -6,8 +6,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / 'main/cast_source'
 UI = ['大连','历史场','历史名单','未发布','离线','最新','在线更新','长按确定更新','日期未设置','立即检查更新','正在同步','同步失败','尚未配置服务','未连接网络','校验失败','保存失败','已存本机','演出阵容','选择日期','上下调整日期','名单日期','发布时段','无自动轮询','资料待补充','阵容历史资料','返回城市','检查更新','仅供历史参考','组','位','已验证更新','协议不支持','不支持的文字','演员手册','选择城市','选择场次','演员名单','阵容待更新','该城市名单尚未提供','作品与角色','个人作品与经历待补充','资料说明','仅为历史资料，非当日节目承诺','上/下选择 确定进入','上/下翻页 长按返回','长按确定返回','电量未知','按键初始化失败','离线快照','今日场','下午场']
 def load():
-    data = json.loads((SRC/'data.json').read_text())
-    seed = re.search(r'<script[^>]*id="seed"[^>]*>(.*?)</script>', (SRC/'index.html').read_text(), re.S)
+    data = json.loads((SRC/'data.json').read_text(encoding='utf-8'))
+    seed = re.search(r'<script[^>]*id="seed"[^>]*>(.*?)</script>', (SRC/'index.html').read_text(encoding='utf-8'), re.S)
     assert seed and json.loads(seed[1]) == data, 'v4 HTML seed differs from data.json'
     assert [v['id'] for v in data['venues']] == ['zhongjie','haerbin','beijing','changchun','nanjing','taian-afternoon','taian','linyi']
     assert [len(v['cards']) for v in data['venues']] == [5,5,5,5,0,3,5,0]
@@ -45,7 +45,7 @@ def generate():
     venues.append('    {"大连大舞台", "", 7, 28, 0},')
     cities.append('大连')
     out+=['const cast_actor_t cast_actors[] = {']+actors+['};','const cast_venue_t cast_venues[9] = {']+venues+['};','const char *const cast_cities[8] = {',', '.join(q(c) for c in cities),'};',f'const char cast_date[] = {q(d["date"])};']
-    glyphs += ''.join((ROOT/'main/main.c').read_text()) + '晚场午场'
+    glyphs += ''.join((ROOT/'main/main.c').read_text(encoding='utf-8')) + '晚场午场'
     # GB2312 common Han characters plus the exact historical/UI repertoire.
     # The source font and server export are verified against this inventory.
     for cp in range(0x4e00,0xa000):
@@ -60,5 +60,5 @@ if __name__=='__main__':
     import sys
     for path,text in generate().items():
         dest=ROOT/path
-        if '--check' in sys.argv: assert dest.read_text()==text, f'stale: {path}'
-        else: dest.write_text(text)
+        if '--check' in sys.argv: assert dest.read_text(encoding='utf-8')==text, f'stale: {path}'
+        else: dest.write_text(text, encoding='utf-8', newline='\n')
