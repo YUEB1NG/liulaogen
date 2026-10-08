@@ -2,11 +2,15 @@
 
 # liulaogen
 
-Current source: r5 adds city/time editing, device batch management and a full 15-day biography cache. See [r5 changes](docs/r5-update.md); r4 remains the previously tested hardware release.
+Current firmware: r5. The device has been flashed and independently verified; the user reports normal display, responsive buttons and no obvious startup flicker. Website upload and offline-content acceptance remain pending.
 
-Firmware and matched ELF/MAP: [Wi-Fi r4 release](https://github.com/YUEB1NG/liulaogen/releases/tag/v0.1.0-liulaogen-wifi-r4).
+[r5 changes](docs/r5-update.md)
 
-Live website: **https://quyue.pythonanywhere.com** (free PythonAnywhere hosting).
+[Firmware and matching ELF/MAP downloads](https://github.com/YUEB1NG/liulaogen/releases/tag/v0.2.0-liulaogen-wifi-r5)
+
+Live website, hosted on the free PythonAnywhere plan:
+
+[Open the website](https://quyue.pythonanywhere.com)
 
 An open-source cast-lineup handbook for FoloToy AI Passport, with a mobile website
 for managing actor profiles and explicitly uploading published lineups.
@@ -18,7 +22,11 @@ offline. The existing eight-city interface and historical library are preserved.
 - `firmware/`: complete ESP32-C3 application, BSP, font assets, tests and build tools.
 - `website/`: Python standard-library backend and existing mobile frontend.
 - `website/deploy/pythonanywhere_wsgi.py`: free PythonAnywhere WSGI hosting template.
-- [Hosting](docs/hosting.md), [validation status](docs/status.md), [licenses](docs/licenses.md).
+- [Hosting](docs/hosting.md)
+
+- [validation status](docs/status.md)
+
+- [licenses](docs/licenses.md)
 
 ## Run the website locally
 
@@ -27,8 +35,11 @@ cd website
 python server.py
 ```
 
-Open http://127.0.0.1:8766 and read `runtime/credentials.json` privately for initial
-login. Never commit or share that file. For hosted service use the hosting guide;
+Local website address:
+
+http://127.0.0.1:8766
+
+Read `runtime/credentials.json` privately for initial login. Never commit or share that file. For hosted service use the hosting guide;
 GitHub Pages cannot run the Python backend. The live site above passed HTTPS,
 login, mobile layout and simulated device pairing checks; see validation status
 for the remaining physical-device acceptance.
@@ -36,8 +47,10 @@ for the remaining physical-device acceptance.
 ## Firmware
 
 Use native ESP-IDF **5.5.3**, target ESP32-C3 / 8 MB Flash / no PSRAM. Follow
-[firmware instructions](firmware/docs/development/cast-wifi.md) and
-[build verification](firmware/docs/development/engineering/build-and-test.md).
+[firmware instructions](firmware/docs/development/cast-wifi.md)
+
+[build verification](firmware/docs/development/engineering/build-and-test.md)
+
 Run `tools/validate.ps1 --all` on an activated Windows environment, or
 `bash tools/validate.sh` from `firmware/` on a supported POSIX environment.
 The verified merged image belongs at **0x0** and resets stored configuration/cache;

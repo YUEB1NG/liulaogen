@@ -71,4 +71,4 @@ r5 同时读取旧协议 1 和新协议 2，并在心跳报告协议能力；旧
 托管状态文件在仓库外，与私有运行数据放在一起。网站用量按自身数据目录实测；
 账号配额为独立的平台上限，不将账号剩余空间全部视为本项目可用空间。
 免费服务到期前需在平台控制台续期，不开通付费服务或自动续期。参见平台的
-[免费方案限制](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/)。
+[免费方案限制](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/)

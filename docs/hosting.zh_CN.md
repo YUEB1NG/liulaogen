@@ -33,6 +33,8 @@ GitHub 保存完整源码，PythonAnywhere 免费账号在同一 HTTPS 地址运
 49 项检查包含经实际 WSGI 服务执行的完整网站与设备 HTTP 测试。PythonAnywhere 的真正创建、
 证书、用户网络可达性以及 Passport 实际上传仍须单独验收。
 
-参考：[免费限制](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/)、
-[手动 WSGI 配置](https://help.pythonanywhere.com/pages/Flask/)、
-[GitHub Pages 限制](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site)。
+参考：[免费限制](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/)
+
+[手动 WSGI 配置](https://help.pythonanywhere.com/pages/Flask/)
+
+[GitHub Pages 限制](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site)

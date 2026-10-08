@@ -42,6 +42,8 @@ are process-local. Private backups must include both state and credentials.
 WSGI. Actual PythonAnywhere provisioning, certificates, reachability from the
 user's network and physical Passport upload remain separate deployment checks.
 
-Sources: [free-plan limits](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/),
-[manual WSGI setup](https://help.pythonanywhere.com/pages/Flask/),
-[GitHub Pages limitations](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site).
+Sources: [free-plan limits](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/)
+
+[manual WSGI setup](https://help.pythonanywhere.com/pages/Flask/)
+
+[GitHub Pages limitations](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site)

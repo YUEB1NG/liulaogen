@@ -85,4 +85,4 @@ The project usage figure is measured from its data directory; the account quota
 is a separate platform limit, not a claim that all remaining account storage is
 available to this application. Free expiry requires renewal in the platform
 dashboard; no paid service or automatic renewal is activated. See the provider's
-[free plan limits](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/).
+[free plan limits](https://help.pythonanywhere.com/pages/FreeAccountsFeatures/)

@@ -56,7 +56,6 @@ old publications imported from an earlier website version.
 records browser tests, firmware interoperability and unperformed server/device
 checks. This package performs no remote deployment, DNS change or publication.
 
-
 For r4, enter the service root URL directly on Passport, then use website pairing.
 Allow authenticated `/api/device/heartbeat` POST and `/api/device/content` GET
 through the proxy; preserve Authorization headers. Heartbeat needs no browser

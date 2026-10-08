@@ -44,7 +44,6 @@ Cookie。同一个数据目录只运行一个 Python 进程，文件锁为进程
 运行 `python -m unittest -v test_api test_device_link` 可测试 API。交付报告分别记录浏览器、
 固件协议联调和未执行的服务器/实机检查。本包不会远程部署、修改 DNS 或发布上线。
 
-
 r4 在 Passport 直接输入服务根地址，再进行网站配对。代理需允许带设备鉴权的
 `/api/device/heartbeat` POST 和 `/api/device/content` GET，并保留 Authorization 请求头。
 设备心跳无需浏览器 Origin；管理员 POST 仍验证 Origin、会话与 CSRF。设备身份及每台一个

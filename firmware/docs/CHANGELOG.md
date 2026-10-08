@@ -57,6 +57,10 @@
 - Added the documentation catalog and task-triggered routing based on the earlier repository model.
 - Added bilingual contribution, code-of-conduct, security, and support documents tailored to this ESP-IDF and fork workflow.
 
+## v0.2.0-liulaogen-wifi-r5 - 2026-10-08
+
+- Add a complete 15-day offline lineup and biography archive, editable cities/session times, actor keyword search and batch device management. Publish the verified r5 image and matching debug artifacts. Segmented flash, startup and online presence passed; the user confirmed normal display, responsive buttons and no obvious flicker. Physical website upload and offline-content acceptance remain pending.
+
 ## v0.1.0-liulaogen-wifi-r4 - 2026-10-08
 
 - Preserve the eight-city offline handbook; add on-device Wi-Fi password entry and explicit website pairing/lineup upload with saved receipts. Publish verified r4 merged firmware and matching debug artifacts. Firmware startup is verified; physical cloud upload remains pending.
