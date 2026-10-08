@@ -19,7 +19,7 @@ static bool fixture_hash(const void *body,size_t size,char out[65]) {
     DIR *dir=opendir("build/host/archive-fixtures");assert(dir);struct dirent *e;bool ok=false;
     char *copy=malloc(CAST_MAX_BODY+1);assert(copy);
     while((e=readdir(dir)))if(hash_valid(e->d_name)) {
-        char path[160];snprintf(path,sizeof(path),"build/host/archive-fixtures/%s",e->d_name);
+        char path[160];snprintf(path,sizeof(path),"build/host/archive-fixtures/%.64s",e->d_name);
         FILE *f=fopen(path,"rb");assert(f);size_t n=fread(copy,1,CAST_MAX_BODY+1,f);fclose(f);
         if(n==size && !memcmp(copy,body,size)){strcpy(out,e->d_name);ok=true;break;}
     }
