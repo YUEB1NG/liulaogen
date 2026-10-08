@@ -44,6 +44,7 @@ static const char *status_text(void) {
     case CAST_BUSY:return "正在同步";
     case CAST_NOT_CONFIGURED:return "尚未配置服务";
     case CAST_CLOCK_WAIT:return "等待网络校时";
+    case CAST_CACHED:return "已打开离线名单";
     default:return "离线";
     }
 }
@@ -152,23 +153,33 @@ static void setup_render(void) {
 static void on_button(bsp_btn_t button, bsp_btn_ev_t event, void *user)
 {
     (void)user;
+    static bool held[3],long_sent[3],ok_recent;
+    static TickType_t last_ok;
+    if((unsigned)button>=3)return;
+    if(event==BSP_BTN_PRESS){held[button]=true;long_sent[button]=false;return;}
+    if(event==BSP_BTN_LONG){long_sent[button]=true;}
+    else if(event==BSP_BTN_RELEASE){
+        if(!held[button])return;
+        held[button]=false;
+        if(long_sent[button])return;
+        if(button==BSP_BTN_OK){
+            TickType_t now=xTaskGetTickCount();
+            if(ok_recent && (TickType_t)(now-last_ok)<pdMS_TO_TICKS(180))return;
+            last_ok=now;ok_recent=true;
+        }
+    }else return;
     cast_key_t key;
-    unsigned count = 1;
     if (event == BSP_BTN_LONG && button == BSP_BTN_OK) key = CAST_BACK;
     else if(event==BSP_BTN_LONG && button==BSP_BTN_UP) key=CAST_LONG_UP;
     else if(event==BSP_BTN_LONG && button==BSP_BTN_DOWN) key=CAST_LONG_DOWN;
-    else if (event == BSP_BTN_CLICK || event == BSP_BTN_DOUBLE) {
+    else if (event == BSP_BTN_RELEASE) {
         if (button == BSP_BTN_UP) key = CAST_UP;
         else if (button == BSP_BTN_DOWN) key = CAST_DOWN;
         else if (button == BSP_BTN_OK) key = CAST_OK;
         else return;
-        /* The driver emits DOUBLE instead of two CLICK events. Preserve both
-         * navigation steps, but never skip two menu levels on a double OK. */
-        if (event == BSP_BTN_DOUBLE && button != BSP_BTN_OK) count = 2;
     } else return;
-    while (count--) {
-        if (xQueueSend(keys, &key, 0) != pdTRUE) break;
-    } /* A full queue drops remaining events; the timer callback never blocks. */
+    /* Each release navigates immediately; a long press never adds a click. */
+    xQueueSend(keys,&key,0);
 }
 static lv_obj_t *label(lv_obj_t *parent, int x, int y, int w, int h)
 {
@@ -203,7 +214,7 @@ static void create_ui(void)
         lv_obj_set_style_border_width(rows[i], 1, 0);
         lv_obj_set_style_border_color(rows[i], lv_color_hex(0x343A43), 0);
     }
-    body = label(screen, 18, 85, 204, 189);
+    body = label(screen, 12, 85, 216, 183);
     status = label(screen,18,268,204,24);
     footer = label(screen,18,292,204,24);
     lv_obj_set_style_text_color(footer, lv_color_hex(0xA9B2C0), 0);
@@ -216,7 +227,7 @@ static void render(void)
     char text[256]; size_t count=0, selected=0;
     bool city=state.level==CAST_CITY, reader=state.level==CAST_READER, sync=state.level==CAST_SYNC;
     const char *title=city?"选择城市":state.level==CAST_SESSION?"选择场次":"演出阵容";
-    if(city) {count=8;selected=state.city;}
+    if(city) {count=cast_city_count();selected=state.city;}
     else if(state.level==CAST_SESSION) {
         count=cast_session_count(state.city);
         for(size_t i=0;i<count;i++) if(cast_session_index(state.city,i)==state.venue) selected=i;
@@ -234,13 +245,13 @@ static void render(void)
         lv_label_set_text(body,b);
 #endif
     } else if(city) snprintf(text,sizeof(text),"%s",cast_display_date());
-    else snprintf(text,sizeof(text),"%s %s",cast_cities[state.city],state.level==CAST_ACTOR?cast_session_label(state.venue):cast_display_date());
+    else snprintf(text,sizeof(text),"%s %s",cast_city_name(state.city),state.level==CAST_ACTOR?cast_session_label(state.venue):cast_display_date());
     lv_label_set_text(heading,title);lv_label_set_text(context,text);
     bool empty=!city && !sync && !reader && !count;
     if(reader || sync || empty) lv_obj_remove_flag(body,LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(body,LV_OBJ_FLAG_HIDDEN);
     if(empty) lv_label_set_text(body,"阵容待更新\n该城市名单尚未提供");
-    size_t start=city?0:selected/5*5;
+    size_t start=city?selected/8*8:selected/5*5;
     for(size_t i=0;i<8;i++) {
         size_t index=start+i;
         if(reader || sync || index>=count || (!city && i>=5)) {lv_obj_add_flag(rows[i],LV_OBJ_FLAG_HIDDEN);continue;}
@@ -248,7 +259,7 @@ static void render(void)
         lv_obj_set_pos(rows[i],city?12+(i%2)*110:12,city?80+(i/2)*45:80+i*36);
         lv_obj_set_size(rows[i],city?106:216,city?39:34);
         const char *name;
-        if(city) name=cast_cities[index];
+        if(city) name=cast_city_name(index);
         else if(state.level==CAST_SESSION) {
             name=cast_session_label(cast_session_index(state.city,index));if(!*name)name="阵容待更新";
         } else name=cast_group_name(state.venue,index);
@@ -281,13 +292,16 @@ void app_main(void)
     keys = xQueueCreate(12, sizeof(cast_key_t));
     if (!keys) { ESP_LOGE(TAG, "Input queue allocation failed"); return; }
     sync_ready=cast_sync_init();
-    const cast_snapshot_t *cached=cast_sync_cached();
-    if(cached) { shown=malloc(sizeof(*shown)); if(shown) {*shown=*cached;cast_use_snapshot(shown);} }
+    shown=cast_sync_cached();
+    if(shown)cast_use_snapshot(shown);
     snprintf(request_date,sizeof(request_date),"%s",cast_display_date());
     /* app_main remains the sole consumer; no extra application task/stack. */
     if (!bsp_lvgl_lock(-1)) return;
     create_ui(); render();
+    lv_refr_now(NULL);
+    esp_err_t first_frame=bsp_display_flush_wait();
     bsp_lvgl_unlock();
+    if(first_frame!=ESP_OK){ESP_LOGE(TAG,"Initial frame transfer failed");return;}
     /* The BSP initializes PWM at zero; make the prepared page visible. */
     bsp_display_backlight(100);
     ESP_LOGI(TAG, "Cast UI ready; backlight enabled");
@@ -297,8 +311,9 @@ void app_main(void)
     int soc = -1;
     for (;;) {
         cast_key_t key;
-        bool input = xQueueReceive(keys, &key, pdMS_TO_TICKS(250)) == pdTRUE;
-        bool refresh = (TickType_t)(xTaskGetTickCount() - last_battery) >= pdMS_TO_TICKS(30000);
+        bool input = xQueueReceive(keys, &key, pdMS_TO_TICKS(40)) == pdTRUE;
+        bool battery_due = (TickType_t)(xTaskGetTickCount() - last_battery) >= pdMS_TO_TICKS(30000);
+        bool refresh=battery_due;
 #ifdef CONFIG_CAST_WIFI_PORTAL
         cast_net_view_t current;cast_network_view(&current);
         if(memcmp(&network,&current,sizeof(current))) {network=current;refresh=true;}
@@ -308,20 +323,22 @@ void app_main(void)
         cast_profile_online_t *arrived=NULL;
         if(cast_sync_profile_poll(&arrived)) {
             profile_busy=false;free(profile);profile=arrived;cast_use_profile(profile);
-            if(state.level==CAST_READER)state.page=0;
+            if(state.level==CAST_READER && state.page>=cast_profile(state.venue,state.actor)->page_count)state.page=0;
             refresh=true;
         }
 #endif
-        if (refresh) { soc = battery_ok ? bsp_battery_soc() : -1; last_battery = xTaskGetTickCount(); }
+        if (battery_due) { soc = battery_ok ? bsp_battery_soc() : -1; last_battery = xTaskGetTickCount(); }
         cast_sync_status_t result;cast_snapshot_t *next=NULL;
         if(cast_sync_poll(&result,&next)) {
+            bool boot_restore=result==CAST_CACHED && !syncing && state.level==CAST_CITY;
             syncing=false;sync_status=result;refresh=true;
             if(next) {
 #ifdef CONFIG_CAST_WIFI_PORTAL
                 /* A different service can reuse dates/revisions/member IDs. */
                 cast_use_profile(NULL);free(profile);profile=NULL;
 #endif
-                free(shown);shown=next;cast_use_snapshot(shown);state=(cast_state_t){.level=CAST_SYNC};
+                free(shown);shown=next;cast_use_snapshot(shown);state=(cast_state_t){.level=boot_restore?CAST_CITY:CAST_SYNC};
+                if(boot_restore)snprintf(request_date,sizeof(request_date),"%s",shown->date);
             }
         }
         if(input) {

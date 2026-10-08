@@ -27,3 +27,6 @@ void lv_obj_set_style_border_color(lv_obj_t *, uint32_t, int);
 void lv_obj_remove_flag(lv_obj_t *, int);
 void lv_obj_add_flag(lv_obj_t *, int);
 
+
+void lv_refr_now(void *display);
+esp_err_t bsp_display_flush_wait(void);

@@ -18,7 +18,7 @@ class DeviceAPI(unittest.TestCase):
         c.request('POST' if body is not None else 'GET',path,json.dumps(body) if body is not None else None,headers)
         r=c.getresponse();status=r.status;data=json.loads(r.read());c.close();return status,data
     def beat(self,ack=None,code='A123B456',bearer=None):
-        return self.device_request('/api/device/heartbeat',{'id':self.device,'code':code,'ack':ack},bearer)
+        return self.device_request('/api/device/heartbeat',{'id':self.device,'code':code,'ack':ack,'protocol':2},bearer)
     def pair(self):
         self.login();self.assertEqual(self.beat()[0],200)
         self.assertEqual(self.request('/api/devices/claim',{'code':'a123b456'})[0],200)
@@ -29,7 +29,7 @@ class DeviceAPI(unittest.TestCase):
         self.pair();status,job,_=self.upload();self.assertEqual(status,202)
         self.assertEqual(self.beat()[1]['job']['id'],job['id'])
         listing=lambda:self.request('/api/devices')[1]['devices'][0]
-        self.assertTrue(listing()['online']);self.assertEqual(listing()['delivery']['status'],'queued')
+        self.assertTrue(listing()['online']);self.assertEqual(listing()['delivery']['status'],'transferring')
         content=f'/api/device/content?id={self.device}&job={job["id"]}'
         self.assertEqual(self.device_request(content,bearer='Bearer '+'c'*64)[0],403)
         code,lineup=self.device_request(content);self.assertEqual(code,200);self.assertEqual(lineup['revision'],1)

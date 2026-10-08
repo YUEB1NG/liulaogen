@@ -15,6 +15,16 @@
 #include "sdkconfig.h"
 #include "cast_network.h"
 #include "cast_remote.h"
+#ifdef CONFIG_CAST_ARCHIVE
+#include "cast_archive.h"
+#include "mbedtls/sha256.h"
+static bool archive_hash(const void *body,size_t size,char hex[65]) {
+    unsigned char digest[32];
+    if(mbedtls_sha256(body,size,digest,0)!=0)return false;
+    for(unsigned i=0;i<32;i++)snprintf(hex+2*i,3,"%02x",digest[i]);
+    return true;
+}
+#endif
 #ifdef ESP_PLATFORM
 #include "esp_heap_caps.h"
 #include "esp_log.h"
@@ -31,7 +41,7 @@ static void resources(const char *stage) {(void)stage;}
 #define CONFIG_CAST_BASE_URL ""
 #endif
 static QueueHandle_t requests,results;
-static cast_snapshot_t *cached;
+static cast_snapshot_t *cached,*boot_copy;
 static bool nvs_ok;
 #ifdef CONFIG_CAST_WIFI_PORTAL
 static QueueHandle_t profile_requests,profile_results;
@@ -52,6 +62,9 @@ static cast_profile_online_t *fetch_profile(const cast_profile_key_t *key) {
     if(!out || !record) {free(out);free(record);return NULL;}
     char *body=record+161;
     if(!cast_network_origin(source,sizeof(source))) {free(out);free(record);return NULL;}
+#ifdef CONFIG_CAST_ARCHIVE
+    if(cast_archive_profile(source,key,out)){free(record);return out;}
+#endif
     if(nvs_open("cast_profile",NVS_READONLY,&nh)==ESP_OK) {
         if(nvs_get_blob(nh,"record",record,&size)==ESP_OK && size>161 && size<=161+CAST_MAX_BODY && memchr(record,0,161) && !strcmp(record,source))valid=cast_profile_parse(body,size-161,key,out);
         nvs_close(nh);
@@ -61,7 +74,7 @@ static cast_profile_online_t *fetch_profile(const cast_profile_key_t *key) {
     char origin[161],url[384],today[11];cast_net_view_t net;cast_network_view(&net);
     if(!net.connected || !cast_network_origin(origin,sizeof(origin)) ||
        (!strncmp(origin,"https://",8) && !cast_network_today(today)))goto done_profile;
-    if(snprintf(url,sizeof(url),"%s/api/device/profile?date=%s&revision=%lu&m0=%s&m1=%s",origin,key->date,(unsigned long)key->revision,key->ids[0],key->ids[1])>=(int)sizeof(url))goto done_profile;
+    if(snprintf(url,sizeof(url),"%s/api/device/profile?date=%s&revision=%lu&m0=%s&m1=%s&columns=13",origin,key->date,(unsigned long)key->revision,key->ids[0],key->ids[1])>=(int)sizeof(url))goto done_profile;
     esp_http_client_config_t cfg={.url=url,.timeout_ms=8000,.disable_auto_redirect=true,.crt_bundle_attach=esp_crt_bundle_attach,.buffer_size=1024};
     esp_http_client_handle_t h=esp_http_client_init(&cfg);if(!h)goto done_profile;
     bool received=false;
@@ -87,7 +100,45 @@ bool cast_sync_profile_request(const cast_profile_key_t *key) {return profile_re
 bool cast_sync_profile_poll(cast_profile_online_t **out) {return profile_results && xQueueReceive(profile_results,out,0)==pdTRUE;}
 #endif
 typedef struct { cast_sync_status_t status; cast_snapshot_t *snapshot; } result_t;
-const cast_snapshot_t *cast_sync_cached(void) { return cached; }
+#ifdef CONFIG_CAST_ARCHIVE
+static bool archive_get(const char *path,char *body,size_t *size) {
+    char current[161];
+    if(!cast_network_origin(current,sizeof(current)) || strcmp(current,fetch_origin))return false;
+    /* Long archive transfers still advertise presence every ten seconds.
+     * The same pending job may be returned; it is acknowledged only at commit. */
+    cast_remote_job_t pending;cast_remote_poll(&pending);
+    char url[320];
+    if(snprintf(url,sizeof(url),"%s%s",fetch_origin,path)>=(int)sizeof(url))return false;
+    esp_http_client_config_t cfg={.url=url,.timeout_ms=8000,.disable_auto_redirect=true,.crt_bundle_attach=esp_crt_bundle_attach,.buffer_size=1024};
+    esp_http_client_handle_t h=esp_http_client_init(&cfg);if(!h)return false;
+    bool ok=false;size_t used=0;
+    if(esp_http_client_open(h,0)==ESP_OK && esp_http_client_fetch_headers(h)<=(int64_t)*size && esp_http_client_get_status_code(h)==200) {
+        while(used<*size+1){int n=esp_http_client_read(h,body+used,*size+1-used);if(n<=0)break;used+=(size_t)n;}
+        ok=used<=*size && esp_http_client_is_complete_data_received(h);
+    }
+    esp_http_client_close(h);esp_http_client_cleanup(h);
+    if(ok)*size=used;
+    return ok;
+}
+static result_t fetch_window(const char *date,uint32_t revision) {
+    result_t r={CAST_OFFLINE,NULL};cast_net_view_t net;char today[11];
+    if(!cast_network_origin(fetch_origin,sizeof(fetch_origin))){r.status=CAST_NOT_CONFIGURED;return r;}
+    cast_network_view(&net);bool connected=net.connected;
+    if(connected && !strncmp(fetch_origin,"https://",8) && !cast_network_today(today)){r.status=CAST_CLOCK_WAIT;return r;}
+    if(connected && !cast_archive_update(fetch_origin,date,revision,archive_get)) {
+        r.status=CAST_SAVE_FAILED;return r;
+    }
+    char current_origin[161];
+    if(!cast_network_origin(current_origin,sizeof(current_origin)) || strcmp(current_origin,fetch_origin)){r.status=CAST_INVALID;return r;}
+    cast_snapshot_t *snapshot=malloc(sizeof(*snapshot)),*copy=malloc(sizeof(*copy));
+    if(!snapshot || !copy){free(snapshot);free(copy);r.status=CAST_SAVE_FAILED;return r;}
+    if(!cast_archive_lineup(fetch_origin,date,snapshot) || (revision && revision!=snapshot->revision)) {
+        free(snapshot);free(copy);r.status=CAST_UNPUBLISHED;return r;
+    }
+    *copy=*snapshot;free(cached);cached=copy;r.snapshot=snapshot;r.status=connected?CAST_LATEST:CAST_CACHED;return r;
+}
+#endif
+cast_snapshot_t *cast_sync_cached(void) {cast_snapshot_t *out=boot_copy;boot_copy=NULL;return out;}
 /* Inactive NVS slot is written/committed/read-back validated before atomic active-key
  * switch. Power loss leaves either previous or next complete slot selected. */
 static bool save(const char *body,size_t size,const cast_snapshot_t *next) {
@@ -139,14 +190,18 @@ static result_t accept_received(const char *body,size_t used,const char *date,ui
 }
 #ifdef CONFIG_CAST_WIFI_PORTAL
 static result_t fetch_remote(const cast_remote_job_t *job) {
+#ifdef CONFIG_CAST_ARCHIVE
+    return fetch_window(job->date,job->revision);
+#else
     result_t r={CAST_OFFLINE,NULL};unsigned used=0;
     if(!cast_network_origin(fetch_origin,sizeof(fetch_origin)))return r;
     char *body=malloc(CAST_MAX_BODY+1);
     if(body && cast_remote_download(job,body,CAST_MAX_BODY+1,&used))r=accept_received(body,used,job->date,job->revision);
     free(body);resources("website upload finished");return r;
+#endif
 }
 #endif
-static result_t fetch(const char *date) {
+static result_t __attribute__((unused)) fetch(const char *date) {
     result_t r={CAST_OFFLINE,NULL};
 #ifdef CONFIG_CAST_WIFI_PORTAL
     char origin[161];
@@ -191,9 +246,26 @@ done:
 }
 static void worker(void *arg) {
     (void)arg;char date[11];
+#ifdef CONFIG_CAST_ARCHIVE
+    /* Formatting first-use storage must never hold the screen dark at boot. */
+    if(cast_archive_init(archive_hash)) {
+        char origin[161],today[11];cast_snapshot_t *snapshot=malloc(sizeof(*snapshot));
+        if(snapshot && cast_network_origin(origin,sizeof(origin)) && cast_archive_today(origin,today) && cast_archive_lineup(origin,today,snapshot)) {
+            cast_snapshot_t *copy=malloc(sizeof(*copy));
+            if(copy){*copy=*snapshot;free(cached);cached=copy;result_t r={CAST_CACHED,snapshot};xQueueSend(results,&r,portMAX_DELAY);snapshot=NULL;}
+        }free(snapshot);
+    }
+#endif
 #ifdef CONFIG_CAST_WIFI_PORTAL
     for(;;) {
-        if(xQueueReceive(requests,date,pdMS_TO_TICKS(100))==pdTRUE) {result_t r=fetch(date);xQueueSend(results,&r,portMAX_DELAY);}
+        if(xQueueReceive(requests,date,pdMS_TO_TICKS(100))==pdTRUE) {
+#ifdef CONFIG_CAST_ARCHIVE
+            result_t r=fetch_window(date,0);
+#else
+            result_t r=fetch(date);
+#endif
+            xQueueSend(results,&r,portMAX_DELAY);
+        }
         cast_profile_key_t key;
         if(xQueueReceive(profile_requests,&key,0)==pdTRUE) {
             cast_profile_online_t *p=fetch_profile(&key);xQueueSend(profile_results,&p,portMAX_DELAY);
@@ -201,7 +273,9 @@ static void worker(void *arg) {
         cast_remote_job_t job;
         if(cast_remote_poll(&job)) {
             result_t r=fetch_remote(&job);
-            cast_remote_ack(&job,r.status==CAST_LATEST);
+            char current[161];
+            if(cast_network_origin(current,sizeof(current)) && !strcmp(current,fetch_origin))
+                cast_remote_ack(&job,r.status==CAST_LATEST);
             xQueueSend(results,&r,portMAX_DELAY);
         }
     }
@@ -214,6 +288,7 @@ static void worker(void *arg) {
 bool cast_sync_init(void) {
     nvs_ok=nvs_flash_init()==ESP_OK; /* Do not erase on version/full errors. */
     load();
+    if(cached){boot_copy=malloc(sizeof(*boot_copy));if(boot_copy)*boot_copy=*cached;}
 #ifdef CONFIG_CAST_WIFI_PORTAL
     if(!nvs_ok || !cast_network_init() || !cast_remote_init()) return false;
 #else

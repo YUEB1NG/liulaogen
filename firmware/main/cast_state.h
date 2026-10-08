@@ -1,4 +1,7 @@
 #pragma once
+#include <stddef.h>
+size_t cast_city_count(void);
+const char *cast_city_name(size_t city);
 #include "cast_data.h"
 #include "cast_protocol.h"
 #include "cast_profile_online.h"

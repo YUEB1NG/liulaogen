@@ -45,5 +45,11 @@ int main(void) {
         cast_navigate(&s,CAST_BACK); assert(s.city==c);
     }
     printf("Cast state/data: PASS (8 cities, 9 sessions, 28 cards, %zu pages)\n", visits);
+    cast_snapshot_t dynamic={.city_count=16};cast_use_snapshot(&dynamic);
+    s=(cast_state_t){0};cast_navigate(&s,CAST_UP);assert(s.city==15);
+    cast_navigate(&s,CAST_LONG_DOWN);assert(s.city==1);
+    cast_navigate(&s,CAST_LONG_UP);assert(s.city==15);
+    dynamic.city_count=1;s.city=0;cast_navigate(&s,CAST_LONG_UP);assert(s.city==0);
+    cast_use_snapshot(NULL);
     return 0;
 }

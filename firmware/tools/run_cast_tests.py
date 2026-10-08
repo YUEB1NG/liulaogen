@@ -58,6 +58,9 @@ def main():
         'tests/test_cast_startup.c', 'main/cast_state.c', 'main/cast_data.c', 'main/cast_input.c', '-o', startup_wifi)
     run(startup_wifi)
     common = [cc, '-std=c11', '-Wall', '-Wextra', '-Werror', '-Imain', f'-I{dep}']
+    archive = out / f'test_cast_archive{suffix}'
+    run(*common, 'tests/test_cast_archive.c', 'main/cast_protocol.c', 'main/cast_profile_online.c', 'main/cast_data.c', dep / 'cJSON.c', '-o', archive)
+    run(sys.executable, 'tests/test_cast_archive.py', archive)
     text_input = out / f'test_cast_input{suffix}'
     run(*common, 'tests/test_cast_input.c', 'main/cast_input.c', '-o', text_input)
     run(text_input)

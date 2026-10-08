@@ -7,6 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit, parse_qs
 import device_contract
+import catalog
 from device_link import DeviceLink,DeviceProblem
 
 ROOT = Path(__file__).resolve().parent
@@ -83,6 +84,9 @@ class Store:
             self.state['actors']={a['id']:{**a,'version':1,'bio':'','user_highlights':[],
                 'user_edited':False,'origin':'historical_library','aliases':[],
                 'historical_profile':copy.deepcopy(a)} for a in self.actors}
+        catalog.migrate(self.state,CITIES)
+        catalog.archive_existing(self.state)
+        atomic(self.path,self.state)
         self.refresh_actors()
         cred=self.folder/'credentials.json'
         if not cred.exists():
@@ -94,6 +98,43 @@ class Store:
         self.device_link=DeviceLink(self)
     def refresh_actors(self):
         self.actors=list(self.state['actors'].values()); self.lookup={a['id']:a for a in self.actors}
+    def save_settings(self,data):
+        settings=catalog.clean_settings(data,self.state['settings'],require)
+        for c in settings['cities']:
+            try:device_contract.text(c['city'],'城市名称',24)
+            except ValueError as e:raise Problem(422,str(e))
+        state=copy.deepcopy(self.state);state['settings']=settings
+        # Keep published history immutable; remove retired cities only from editable drafts.
+        names={c['id']:c['city'] for c in settings['cities']}
+        for draft in state['drafts'].values():
+            draft['venues']=[v for v in draft['venues'] if v['id'] in names]
+            for v in draft['venues']:v['city']=names[v['id']]
+            draft['version']+=1
+        state['audit'].append({'action':'city_settings','version':settings['version'],
+                               'at':dt.datetime.now(dt.timezone.utc).isoformat(),'actor':'admin'})
+        self.commit(state);return settings
+    def changes(self,date,city,session):
+        previous=(dt.date.fromisoformat(date)-dt.timedelta(days=1)).isoformat()
+        def members(day):
+            if not day:return None
+            for v in day['venues']:
+                if v['id']==city:
+                    for s in v['sessions']:
+                        if s['id']==session:return [m for g in s['groups'] for m in g['members'] if m['id']]
+            return None
+        before=members(self.state['published'].get(previous))
+        return {'previous_date':previous,'available':before is not None,'previous':before or []}
+    def storage_info(self):
+        used=sum(p.stat().st_size for p in self.folder.rglob('*') if p.is_file())
+        hosting_path=self.folder/'hosting.json'
+        hosting=json.loads(hosting_path.read_text('utf8')) if hosting_path.exists() else {}
+        return {'used_bytes':used,'state_bytes':self.path.stat().st_size,
+                'actors':len(self.actors),'draft_dates':len(self.state['drafts']),
+                'published_dates':len(self.state['published']),
+                'publication_versions':sum(len(v) for v in self.state.get('publication_history',{}).values()),
+                'hosting':{k:v for k,v in hosting.items() if k in
+                           ('provider','period_start','expires_at','quota_bytes','account_used_bytes','checked_at')},
+                'retention':'全部日期及发布版本保留；设备仅下载当天前后各7天'}
     def canonical(self, value):
         value=copy.deepcopy(value)
         def walk(x):
@@ -139,15 +180,19 @@ class Store:
         state['audit'].append({'action':'actor_update' if old else 'actor_create','id':actor['id'],'version':actor['version'],'at':actor['updated_at'],'actor':'admin'})
         self.commit(state); self.refresh_actors(); return actor
     def revision(self,date): return self.state['published'].get(date,{}).get('revision',0)
-    def commit(self,state): atomic(self.path,state); self.state=state
+    def commit(self,state):
+        # A second durable copy makes a damaged current file recoverable by the administrator.
+        atomic(self.folder/'state.previous.json',self.state)
+        atomic(self.path,state); self.state=state
     def validate(self,venues,complete):
-        require(isinstance(venues,list) and len(venues)<=8,'城市列表无效')
+        cities=self.state['settings']['cities']; city_map={c['id']:c for c in cities}
+        require(isinstance(venues,list) and len(venues)<=16,'城市列表无效')
         require(not complete or bool(venues),'至少安排一个城市后才可发布')
         seen_v=set(); out=[]
         for v in venues:
             require(isinstance(v,dict),'城市对象无效'); vid=v.get('id')
-            require(isinstance(vid,str) and vid in CITY and vid not in seen_v,'城市无效或重复'); seen_v.add(vid)
-            require(v.get('city')==CITY[vid],'城市名称与ID不一致')
+            require(isinstance(vid,str) and vid in city_map and vid not in seen_v,'城市无效或重复'); seen_v.add(vid)
+            require(v.get('city')==city_map[vid]['city'],'城市名称与ID不一致')
             ss=v.get('sessions'); require(isinstance(ss,list) and 1<=len(ss)<=2,'每城须有1至2场')
             seen_s=set(); clean=[]
             for s in ss:
@@ -168,9 +213,9 @@ class Store:
                         require(aid not in used,'同一场次演员不可重复'); used.add(aid)
                         members.append({'id':aid,'name':self.lookup[aid]['name']})
                     gs.append({'members':members})
-                clean.append({'id':sid,'label':SESSIONS[sid],'groups':gs})
-            out.append({'id':vid,'city':CITY[vid],'sessions':sorted(clean,key=lambda s:list(SESSIONS).index(s['id']))})
-        return sorted(out,key=lambda v:list(CITY).index(v['id']))
+                clean.append({'id':sid,'label':SESSIONS[sid],'groups':gs,**({'time':city_map[vid]['times'][sid]} if city_map[vid]['times'][sid] else {})})
+            out.append({'id':vid,'city':city_map[vid]['city'],'sessions':sorted(clean,key=lambda s:list(SESSIONS).index(s['id']))})
+        return sorted(out,key=lambda v:[c['id'] for c in cities].index(v['id']))
 
 class Handler(BaseHTTPRequestHandler):
     server_version='CastLocal/1'
@@ -243,7 +288,35 @@ class Handler(BaseHTTPRequestHandler):
             require(len(self.headers.get_all('Authorization',[]))==1,'设备凭据无效',401)
             return self.reply(200,st.device_link.content(q['id'][0],q['job'][0],self.headers.get('Authorization')))
         if path=='/api/actors': return self.reply(200,{'schema_version':1,'actors':st.actors,'notice':'历史资料与用户自填资料分开保留，不代表今日阵容或节目承诺'})
-        if path=='/api/config': return self.reply(200,{'cities':[{'id':i,'city':c} for i,c in CITIES],'sessions':[{'id':i,'label':s} for i,s in SESSIONS.items()]})
+        if path=='/api/config': return self.reply(200,{**st.state['settings'],'sessions':[{'id':i,'label':s} for i,s in SESSIONS.items()]})
+        if path=='/api/storage':
+            self.session();return self.reply(200,st.storage_info())
+        if path=='/api/backup':
+            self.session();snapshot=copy.deepcopy(st.state)
+            # Pairing credentials are not part of downloadable content backups.
+            snapshot.pop('linked_devices',None);snapshot.pop('delivery_jobs',None)
+            return self.reply(200,{'format':'liulaogen-content-backup-v1','state':snapshot})
+        if path=='/api/changes':
+            self.session();date=date_value(q.get('date',[''])[0]);return self.reply(200,st.changes(date,q.get('city',[''])[0],q.get('session',[''])[0]))
+        if path=='/api/device/window':
+            today=dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).date()
+            days=[(today+dt.timedelta(days=i)).isoformat() for i in range(-7,8)]
+            selected=q.get('date',[''])[0];revision=q.get('revision',['0'])[0]
+            require(revision.isdecimal(),'版本无效')
+            require(not selected or selected in days,'设备仅缓存当天前后各7天的名单')
+            records=[]
+            for d in days:
+                rev=int(revision) if selected==d and int(revision) else st.revision(d)
+                digest=st.state.get('archive_versions',{}).get(d+':'+str(rev))
+                require(not rev or digest is not None,'此日期尚无完整离线资料，请在网站重新发布',409)
+                records.append({'date':d,'revision':rev,'archive':digest or ''})
+            return self.reply(200,{'today':today.isoformat(),'selected':selected,'days':records})
+        if path=='/api/device/blob':
+            digest=q.get('id',[''])[0]
+            require(re.fullmatch('[0-9a-f]{64}',digest) is not None,'缓存标识无效')
+            blob=st.state.get('device_blobs',{}).get(digest)
+            require(blob is not None,'缓存文件不存在',404)
+            return self.reply(200,blob)
         if path=='/api/lineup':
             date=date_value(q.get('date',[''])[0]); lineup=st.state['published'].get(date)
             require(lineup is not None,'该日期尚未发布',404); return self.reply(200,lineup)
@@ -251,11 +324,11 @@ class Handler(BaseHTTPRequestHandler):
             date=date_value(q.get('date',[''])[0])
             revision=q.get('revision',[''])[0]
             require(revision.isdecimal(),'版本无效')
-            record=st.state.get('device_profiles',{}).get(date)
+            record=st.state.get('profile_versions',{}).get(date+':'+revision) or st.state.get('device_profiles',{}).get(date)
             require(record is not None,'该版本未发布设备资料',404)
             require(record['revision']==int(revision),'版本已更新，请先更新阵容',409)
             key=q.get('m0',[''])[0]+'|'+q.get('m1',[''])[0]
-            profile=record['profiles'].get(key)
+            profile=record.get('profiles13' if q.get('columns',['11'])[0]=='13' else 'profiles',{}).get(key)
             require(profile is not None,'该组合不在已发布名单中',404)
             return self.reply(200,profile)
         if path=='/api/session':
@@ -264,7 +337,7 @@ class Handler(BaseHTTPRequestHandler):
             self.session(); date=date_value(q.get('date',[''])[0])
             if path=='/api/draft': return self.reply(200,{**st.draft(date),'revision':st.revision(date)})
             vid=q.get('city',[''])[0]; sid=q.get('session',[''])[0]
-            require(vid in CITY and sid in SESSIONS,'城市或场次无效')
+            require(vid in {c['id'] for c in st.state['settings']['cities']} and sid in SESSIONS,'城市或场次无效')
             for day in sorted(st.state['published'],reverse=True):
                 if day>=date: continue
                 for v in st.state['published'][day]['venues']:
@@ -274,7 +347,7 @@ class Handler(BaseHTTPRequestHandler):
             old=st.history.get((vid,sid))
             require(old is not None and old['date']<date,'没有可复制的此前阵容',404)
             return self.reply(200,{'source':'historical_library',**st.canonical(old)})
-        files={'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8')}
+        files={'/features.js':('features.js','text/javascript; charset=utf-8'),'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8')}
         require(path in files,'接口或文件不存在',404)
         name,ctype=files[path]; body=(ROOT/'static'/name).read_bytes()
         self.send_response(200); self.headers_common(ctype); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
@@ -296,6 +369,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(200,{'csrf':csrf},'cast_session='+token+'; Path=/; HttpOnly; SameSite=Strict; Max-Age=28800'+('; Secure' if self.server.secure_cookie else ''))
         token,s=self.session()
         require(secrets.compare_digest(self.headers.get('X-CSRF-Token','').encode(),s['csrf'].encode()),'CSRF 校验失败',403)
+        if path=='/api/config':return self.reply(200,st.save_settings(data))
+        if path=='/api/devices/rename':return self.reply(200,st.device_link.rename(data))
+        if path=='/api/devices/batch':return self.reply(200,st.device_link.batch(data))
         if path=='/api/devices/claim':return self.reply(200,st.device_link.claim(data))
         if path=='/api/devices/upload':return self.reply(202,st.device_link.upload(data))
         if path=='/api/devices/forget':return self.reply(200,st.device_link.forget(data))
@@ -314,12 +390,19 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(200,{**draft,'revision':st.revision(date)})
         require(type(data.get('revision')) is int and data['revision']==st.revision(date),'发布版本已变化，请重新预览',409)
         clean=st.validate(draft['venues'],True)
-        lineup={'schema_version':1,'date':date,'revision':st.revision(date)+1,'venues':clean}
-        try: profiles=device_contract.exports(lineup,st.lookup)
+        lineup={'schema_version':2,'date':date,'revision':st.revision(date)+1,'venues':clean,'cities':[{k:c[k] for k in ('id','city')} for c in st.state['settings']['cities']]}
+        try:
+            profiles=device_contract.exports(lineup,st.lookup)
+            profiles13=device_contract.exports(lineup,st.lookup,13)
         except ValueError as e: raise Problem(422,str(e))
         if path=='/api/preview': return self.reply(200,lineup)
         state=copy.deepcopy(st.state); state['published'][date]=lineup
-        state.setdefault('device_profiles',{})[date]={'revision':lineup['revision'],'profiles':profiles}
+        record={'revision':lineup['revision'],'profiles':profiles,'profiles13':profiles13}
+        state.setdefault('device_profiles',{})[date]=record
+        state.setdefault('profile_versions',{})[date+':'+str(lineup['revision'])]=record
+        state.setdefault('publication_history',{}).setdefault(date,[]).append(lineup)
+        digest=device_contract.archive(lineup,profiles13,state.setdefault('device_blobs',{}))
+        state.setdefault('archive_versions',{})[date+':'+str(lineup['revision'])]=digest
         state['audit'].append({'date':date,'revision':lineup['revision'],'draft_version':draft['version'],'at':dt.datetime.now(dt.timezone.utc).isoformat(),'actor':'admin'})
         st.commit(state); self.reply(200,lineup)
 

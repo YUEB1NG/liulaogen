@@ -12,6 +12,8 @@ bool cast_current_profile_key(size_t v,size_t g,cast_profile_key_t *out) {
     return true;
 }
 void cast_use_snapshot(const cast_snapshot_t *s) { online=s; }
+size_t cast_city_count(void) {return online?online->city_count:8;}
+const char *cast_city_name(size_t city) {return city<cast_city_count()?(online?online->cities[city]:cast_cities[city]):"";}
 const char *cast_display_date(void) { return online?online->date:cast_date; }
 size_t cast_group_count(size_t v) { return online?(v<online->session_count?online->sessions[v].count:0):(v<9?cast_venues[v].count:0); }
 const char *cast_session_label(size_t v) { return online?(v<online->session_count?online->sessions[v].label:""):(v<9?(!strcmp(cast_venues[v].session,"今日场")?"历史场":cast_venues[v].session):""); }
@@ -62,7 +64,7 @@ void cast_navigate(cast_state_t *s,cast_key_t key) {
     }
     if(s->level==CAST_SYNC) return;
     if(key==CAST_LONG_UP || key==CAST_LONG_DOWN) {
-        if(s->level==CAST_CITY) s->city=(s->city+(key==CAST_LONG_UP?6:2))%8;
+        if(s->level==CAST_CITY) s->city=(s->city+cast_city_count()+(key==CAST_LONG_UP?-2:2))%cast_city_count();
         return;
     }
     if(key==CAST_OK) {
@@ -71,7 +73,7 @@ void cast_navigate(cast_state_t *s,cast_key_t key) {
         else if(s->level==CAST_ACTOR && cast_group_count(s->venue)) {s->page=0;s->level=CAST_READER;}
         return;
     }
-    if(s->level==CAST_CITY) s->city=move(s->city,8,key);
+    if(s->level==CAST_CITY) s->city=move(s->city,cast_city_count(),key);
     else if(s->level==CAST_SESSION) {
         size_t count=cast_session_count(s->city),ordinal=0;
         for(size_t i=0;i<count;i++) if(cast_session_index(s->city,i)==s->venue) ordinal=i;

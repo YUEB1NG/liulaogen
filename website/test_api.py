@@ -54,7 +54,8 @@ class API(unittest.TestCase):
         self.assertEqual(self.request('/api/preview',p)[0],200)
         self.assertEqual(self.request('/api/lineup?date=2026-10-03')[0],404)
         code,pub,_=self.request('/api/publish',p);self.assertEqual(code,200);self.assertEqual(pub['revision'],1)
-        self.assertEqual(set(pub),{'schema_version','date','revision','venues'})
+        self.assertEqual(set(pub),{'schema_version','date','revision','venues','cities'})
+        self.assertEqual(pub['schema_version'],2)
         change=self.payload();change['version']=1;change['venues'][0]['sessions'][0]['groups'].pop()
         self.assertEqual(self.request('/api/draft',change)[0],200)
         self.assertEqual(len(self.request('/api/lineup?date=2026-10-03')[1]['venues'][0]['sessions'][0]['groups']),5)
@@ -136,7 +137,7 @@ class API(unittest.TestCase):
         self.login();p=self.save();published=self.request('/api/publish',p)[1]
         a=self.server.store.actors[0];original=copy.deepcopy(a);body=self.actor_data(a);body['name']='改名测试甲'
         code,updated,_=self.request('/api/actors/'+a['id'],body);self.assertEqual(code,200)
-        self.assertEqual(updated['id'],original['id']);self.assertEqual(updated['version'],2)
+        self.assertEqual(updated['id'],original['id']);self.assertEqual(updated['version'],original['version']+1)
         self.assertEqual(updated['historical_profile'],original['historical_profile']);self.assertEqual(updated['highlights'],original['highlights']);self.assertEqual(updated['source_notes'],original['source_notes'])
         self.assertEqual(self.request('/api/lineup?date='+p['date'])[1],published)
         self.assertEqual(self.request('/api/preview',{**p,'revision':1})[0],409)

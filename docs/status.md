@@ -2,6 +2,8 @@
 
 # Verification status
 
+Current r5 source implements the October 8 fixes; see [r5 behavior and limits](r5-update.md). Local website: 56 tests passed. Firmware static gate and 6,900-glyph coverage passed. Mobile browser emulation passed at 320/390/768 px. Final build and deployment evidence is delivered with the r5 package. r5 hardware tests, real iPhone Safari, and physical power-cycle acceptance are NOT RUN. The r4 evidence below is historical.
+
 Firmware `cast-wifi-20261007-r4`:
 
 - Build: PASS, native ESP-IDF 5.5.3 and merged-image/debug-bundle verification.

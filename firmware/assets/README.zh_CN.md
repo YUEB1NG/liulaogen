@@ -12,7 +12,7 @@
 
 本应用使用 `fonts/NotoSansCJKsc-Cast.otf`（Noto Sans CJK SC，许可证见
 `fonts/OFL.txt`）及随包保留的 `fonts/cast_font_16.c`：16 px、4 bpp、不压缩、
-24 px 行高，共 6875 个字形。字体、字符清单和生成源码的哈希记录在
+24 px 行高，共 6900 个字形。字体、字符清单和生成源码的哈希记录在
 `fonts/cast-font-manifest.json`。应用全部标签显式绑定 `cast_font_16`。
 原资源由 Pillow 11.0.0 / FreeType 2.13.3 生成；Wi-Fi 版使用相同栅格化器和
 fonttools 4.55.3 增加 GB2312 常用汉字。源字体为
@@ -53,3 +53,5 @@ SHA-256 为 `2c76254f6fc379fddfce0a7e84fb5385bb135d3e399294f6eeb6680d0365b74b`�
 - 与当前 BSP 音频路径匹配时优先采用 16 kHz、16 位单声道 PCM。
 - 嵌入音频前评估 Flash 与内部 RAM 成本；长录音应流式或分块。
 - 无再分发许可不提交媒体文件。
+
+r5 补充字符表 `fonts/catalog-characters.txt` 覆盖用户提供的 10 月 8 日演员姓名、作品与简介；原文字段保留在网站演员资料库。

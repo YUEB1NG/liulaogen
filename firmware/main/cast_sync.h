@@ -9,4 +9,5 @@ bool cast_sync_init(void);
 bool cast_sync_request(const char *date);
 /* Ownership of *snapshot passes to caller. Worker never accesses LVGL. */
 bool cast_sync_poll(cast_sync_status_t *status,cast_snapshot_t **snapshot);
-const cast_snapshot_t *cast_sync_cached(void);
+/* One startup copy; ownership passes to caller, independent of the worker cache. */
+cast_snapshot_t *cast_sync_cached(void);

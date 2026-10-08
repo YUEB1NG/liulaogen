@@ -13,10 +13,10 @@ static bool unique(cJSON *o) {
 }
 static bool string(cJSON *v,char *out,size_t capacity,bool paragraph) {
     if(!cJSON_IsString(v) || !*v->valuestring || strlen(v->valuestring)>=capacity) return false;
-    char copy[256];strcpy(copy,v->valuestring);unsigned columns=0,lines=1;
+    char copy[320];strcpy(copy,v->valuestring);unsigned columns=0,lines=1;
     for(char *p=copy;*p;p++) {
         if(*p=='\n' && paragraph) {if(++lines>7)return false;columns=0;*p=' ';}
-        else {if((unsigned char)*p<32 || *p==127)return false;if(((unsigned char)*p&0xc0)!=0x80 && ++columns>(paragraph?11u:8u))return false;}
+        else {if((unsigned char)*p<32 || *p==127)return false;if(((unsigned char)*p&0xc0)!=0x80 && ++columns>(paragraph?13u:8u))return false;}
     }
     if(!cast_text_supported(copy))return false;
     strcpy(out,v->valuestring);return true;
@@ -36,7 +36,7 @@ bool cast_profile_parse(const char *body,size_t size,const cast_profile_key_t *k
        !cJSON_IsNumber(revision) || revision->valuedouble!=key->revision || !cJSON_IsArray(members) || cJSON_GetArraySize(members)!=2 || !cJSON_IsArray(pages))goto done;
     for(unsigned i=0;i<2;i++) {cJSON *v=cJSON_GetArrayItem(members,i);if(!cJSON_IsString(v) || strcmp(v->valuestring,key->ids[i]))goto done;}
     int count=cJSON_GetArraySize(pages);if(count<1 || count>CAST_PROFILE_PAGES)goto done;
-    for(int i=0;i<count;i++) {cJSON *p=cJSON_GetArrayItem(pages,i);if(!cJSON_IsObject(p) || !string(cJSON_GetObjectItemCaseSensitive(p,"title"),next->pages[i].title,25,false) || !string(cJSON_GetObjectItemCaseSensitive(p,"text"),next->pages[i].text,256,true))goto done;}
+    for(int i=0;i<count;i++) {cJSON *p=cJSON_GetArrayItem(pages,i);if(!cJSON_IsObject(p) || !string(cJSON_GetObjectItemCaseSensitive(p,"title"),next->pages[i].title,25,false) || !string(cJSON_GetObjectItemCaseSensitive(p,"text"),next->pages[i].text,sizeof(next->pages[i].text),true))goto done;}
     next->key=*key;next->count=(size_t)count;*out=*next;ok=true;
 done:free(next);cJSON_Delete(root);return ok;
 }

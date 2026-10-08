@@ -80,21 +80,31 @@ static bool parse(const char *json,size_t len,const char *date,cast_snapshot_t *
     while(end<json+len && isspace((unsigned char)*end)) end++;
     if(end!=json+len) goto done;
     cJSON *v=field(root,"schema_version"),*r=field(root,"revision"),*vs=field(root,"venues");
-    if(!cJSON_IsNumber(v) || v->valuedouble!=1 || !cJSON_IsNumber(r) || !isfinite(r->valuedouble) || r->valuedouble<1 || r->valuedouble>4294967295.0 || r->valuedouble!=(uint32_t)r->valuedouble) goto done;
-    if(!text(field(root,"date"),n->date,sizeof(n->date)) || !cast_valid_date(n->date) || (date && strcmp(n->date,date)) || !cJSON_IsArray(vs) || cJSON_GetArraySize(vs)>8) goto done;
+    if(!cJSON_IsNumber(v) || (v->valuedouble!=1 && v->valuedouble!=2) || !cJSON_IsNumber(r) || !isfinite(r->valuedouble) || r->valuedouble<1 || r->valuedouble>4294967295.0 || r->valuedouble!=(uint32_t)r->valuedouble) goto done;
+    if(!text(field(root,"date"),n->date,sizeof(n->date)) || !cast_valid_date(n->date) || (date && strcmp(n->date,date)) || !cJSON_IsArray(vs) || cJSON_GetArraySize(vs)>CAST_MAX_CITIES) goto done;
     n->revision=(uint32_t)r->valuedouble;
-    bool seen[8]={0}; char venue_ids[8][33]={{0}}; int vi=0;
+    bool seen[CAST_MAX_CITIES]={0}; char venue_ids[CAST_MAX_CITIES][33]={{0}};
+    static const char *const ids[]={"zhongjie","haerbin","beijing","changchun","nanjing","taian","linyi","dalian"};
+    if(v->valuedouble==1) {
+        n->city_count=8;
+        for(int i=0;i<8;i++) {strcpy(n->cities[i],cast_cities[i]);strcpy(venue_ids[i],ids[i]);}
+    } else {
+        cJSON *cs=field(root,"cities"),*c;
+        if(!cJSON_IsArray(cs) || cJSON_GetArraySize(cs)<1 || cJSON_GetArraySize(cs)>CAST_MAX_CITIES)goto done;
+        cJSON_ArrayForEach(c,cs) {
+            unsigned ci=n->city_count;
+            if(!identifier(field(c,"id"),venue_ids[ci],33) || !text(field(c,"city"),n->cities[ci],CAST_NAME_BYTES))goto done;
+            for(unsigned j=0;j<ci;j++)if(!strcmp(venue_ids[j],venue_ids[ci]) || !strcmp(n->cities[j],n->cities[ci]))goto done;
+            n->city_count++;
+        }
+    }
     cJSON *venue;
     cJSON_ArrayForEach(venue,vs) {
         char city[25],id[33];
         if(!text(field(venue,"city"),city,sizeof(city)) || !identifier(field(venue,"id"),id,sizeof(id))) goto done;
-        int ci=0; while(ci<8 && strcmp(city,cast_cities[ci])) ci++;
-        if(ci==8 || seen[ci]) goto done;
-        static const char *const ids[]={"zhongjie","haerbin","beijing","changchun","nanjing","taian","linyi","dalian"};
-        if(strcmp(id,ids[ci])) goto done;
+        unsigned ci=0; while(ci<n->city_count && strcmp(id,venue_ids[ci])) ci++;
+        if(ci==n->city_count || seen[ci] || strcmp(city,n->cities[ci]))goto done;
         seen[ci]=true;
-        for(int i=0;i<vi;i++) if(!strcmp(venue_ids[i],id)) goto done;
-        strcpy(venue_ids[vi++],id);
         cJSON *ss=field(venue,"sessions"),*s;
         if(!cJSON_IsArray(ss) || cJSON_GetArraySize(ss)>2) goto done;
         cJSON_ArrayForEach(s,ss) {
@@ -102,6 +112,15 @@ static bool parse(const char *json,size_t len,const char *date,cast_snapshot_t *
             cast_session_t *ns=&n->sessions[n->session_count++]; ns->city=ci;ns->first=n->group_count;
             if(!identifier(field(s,"id"),ns->id,sizeof(ns->id)) || !text(field(s,"label"),ns->label,sizeof(ns->label))) goto done;
             if(strcmp(ns->id,"afternoon") && strcmp(ns->id,"evening")) goto done;
+            cJSON *time=field(s,"time");
+            if(time) {
+                if(!cJSON_IsString(time) || strlen(time->valuestring)!=5)goto done;
+                const char *t=time->valuestring;
+                if(t[2]!=':' || t[0]<'0' || t[0]>'2' || t[1]<'0' || t[1]>'9' ||
+                   (t[0]=='2' && t[1]>'3') || t[3]<'0' || t[3]>'5' || t[4]<'0' || t[4]>'9')goto done;
+                size_t len=strlen(ns->label);if(len+8>=sizeof(ns->label))goto done;
+                snprintf(ns->label+len,sizeof(ns->label)-len," (%s)",t);
+            }
             for(int j=0;j<n->session_count-1;j++) if(n->sessions[j].city==ci && !strcmp(n->sessions[j].id,ns->id)) goto done;
             cJSON *gs=field(s,"groups"),*g;
             if(!cJSON_IsArray(gs) || cJSON_GetArraySize(gs)>CAST_MAX_GROUPS_PER_SESSION) goto done;

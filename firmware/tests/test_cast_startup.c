@@ -45,6 +45,8 @@ esp_err_t bsp_display_init(void) { brightness=0; return fail_at==1?ESP_FAIL:ESP_
 bool bsp_lvgl_init(void) { initialized=fail_at!=2; return initialized; }
 bool bsp_lvgl_lock(int timeout) { (void)timeout; assert(!locked); locked=fail_at!=4; return locked; }
 void bsp_lvgl_unlock(void) { assert(locked); locked=false; rendered=city_labels>=8; }
+void lv_refr_now(void *d) {(void)d;assert(locked && city_labels>=8);}
+esp_err_t bsp_display_flush_wait(void) {assert(locked && city_labels>=8);return fail_at==6?ESP_FAIL:ESP_OK;}
 void bsp_display_backlight(uint8_t percent) {
     assert(initialized && rendered && !locked);
     assert(percent>0 && percent<=100);
@@ -64,7 +66,7 @@ int xQueueSend(QueueHandle_t q,const void *data,unsigned timeout) {
     queued[queue_count++]=*(const cast_key_t *)data; return pdTRUE;
 }
 int xQueueReceive(QueueHandle_t q,void *data,unsigned timeout) {
-    assert(q && data && timeout==250 && buttons_ready && brightness>0);
+    assert(q && data && timeout==40 && buttons_ready && brightness>0);
     if (!exercise_loop) longjmp(reached_loop,1);
     ticks+=timeout;
     if (!queue_count && pending_result) return pdFALSE;
@@ -76,7 +78,7 @@ int xQueueReceive(QueueHandle_t q,void *data,unsigned timeout) {
 }
 TickType_t xTaskGetTickCount(void) { return ticks; }
 bool cast_sync_init(void) { return exercise_loop; }
-const cast_snapshot_t *cast_sync_cached(void) { return NULL; }
+cast_snapshot_t *cast_sync_cached(void) { return NULL; }
 bool cast_sync_request(const char *date) { assert(!strcmp(date,cast_date)); pending_result=true; return true; }
 bool cast_sync_poll(cast_sync_status_t *result,cast_snapshot_t **snapshot) {
     if (!pending_result) return false;
@@ -123,7 +125,7 @@ static const action_t actions[]={
     {BSP_BTN_DOWN,BSP_BTN_DOUBLE,CAST_ACTOR,0,2,0},
     {BSP_BTN_UP,BSP_BTN_DOUBLE,CAST_ACTOR,0,0,0},
     {BSP_BTN_OK,BSP_BTN_DOUBLE,CAST_READER,0,0,0},
-    {BSP_BTN_DOWN,BSP_BTN_DOUBLE,CAST_READER,0,0,2},
+    {BSP_BTN_DOWN,BSP_BTN_DOUBLE,CAST_READER,0,0,1},
     {BSP_BTN_UP,BSP_BTN_DOUBLE,CAST_READER,0,0,0},
     {BSP_BTN_OK,BSP_BTN_LONG,CAST_ACTOR,0,0,0},
     {BSP_BTN_OK,BSP_BTN_LONG,CAST_SESSION,0,0,0},
@@ -186,32 +188,33 @@ static void next_action(void) {
     if(network_page && setup_page==SETUP_CLEAR)assert(strstr(contents[body-objects],"清除网络与服务地址"));
 #endif
     const action_t *action=&actions[scenario_step++];
-    button_callback(action->button,action->event,NULL);
+    ticks+=400;
+    button_callback(action->button,BSP_BTN_PRESS,NULL);
+    if(action->event==BSP_BTN_LONG)button_callback(action->button,BSP_BTN_LONG,NULL);
+    button_callback(action->button,BSP_BTN_RELEASE,NULL);
+    if(action->event==BSP_BTN_DOUBLE){ticks+=20;button_callback(action->button,BSP_BTN_PRESS,NULL);button_callback(action->button,BSP_BTN_RELEASE,NULL);}
 }
 
 static void check_callback_boundaries(void) {
     queue_count=send_calls=0;
-    on_button(BSP_BTN_UP,BSP_BTN_PRESS,NULL);
-    on_button((bsp_btn_t)99,BSP_BTN_CLICK,NULL);
-    assert(!queue_count && !send_calls);
-    for(unsigned i=0;i<11;++i) on_button(BSP_BTN_UP,BSP_BTN_CLICK,NULL);
-    on_button(BSP_BTN_DOWN,BSP_BTN_DOUBLE,NULL);
-    assert(queue_count==12 && queued[11]==CAST_DOWN && send_calls==13);
-    on_button(BSP_BTN_OK,BSP_BTN_DOUBLE,NULL);
-    assert(queue_count==12 && send_calls==14);
-    queue_count=0;
-    on_button(BSP_BTN_OK,BSP_BTN_DOUBLE,NULL);
-    assert(queue_count==1 && queued[0]==CAST_OK);
-    queue_count=0;
+    on_button(BSP_BTN_UP,BSP_BTN_CLICK,NULL);on_button(BSP_BTN_DOWN,BSP_BTN_DOUBLE,NULL);
+    on_button((bsp_btn_t)99,BSP_BTN_RELEASE,NULL);assert(!queue_count);
+    for(unsigned i=0;i<13;i++){on_button(BSP_BTN_UP,BSP_BTN_PRESS,NULL);on_button(BSP_BTN_UP,BSP_BTN_RELEASE,NULL);}
+    assert(queue_count==12 && send_calls==13);queue_count=0;
+    ticks+=400;on_button(BSP_BTN_OK,BSP_BTN_PRESS,NULL);on_button(BSP_BTN_OK,BSP_BTN_RELEASE,NULL);
+    on_button(BSP_BTN_OK,BSP_BTN_PRESS,NULL);on_button(BSP_BTN_OK,BSP_BTN_RELEASE,NULL);
+    assert(queue_count==1 && queued[0]==CAST_OK);queue_count=0;
+    on_button(BSP_BTN_OK,BSP_BTN_PRESS,NULL);on_button(BSP_BTN_OK,BSP_BTN_LONG,NULL);on_button(BSP_BTN_OK,BSP_BTN_RELEASE,NULL);
+    assert(queue_count==1 && queued[0]==CAST_BACK);queue_count=0;
 }
 
 int main(void) {
-    for (fail_at=0;fail_at<=5;++fail_at) {
+    for (fail_at=0;fail_at<=6;++fail_at) {
         brightness=labels=city_labels=0;
         locked=initialized=rendered=buttons_ready=false;
         if (setjmp(reached_loop)==0) {
             app_main();
-            assert(fail_at>=1 && fail_at<=4);
+            assert((fail_at>=1 && fail_at<=4) || fail_at==6);
             assert(brightness==0 && !buttons_ready);
         } else {
             assert(fail_at==0 || fail_at==5);

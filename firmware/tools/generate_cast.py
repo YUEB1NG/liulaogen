@@ -14,10 +14,10 @@ def load():
     return data
 
 def pages(text):
-    # Every Unicode character gets a full 18px cell (conservative for Latin).
+    # Thirteen 16px Han advances fit the 216px reader.
     lines = []
     for line in text.split('\n'):
-        lines.extend([line[i:i+11] for i in range(0,len(line),11)] or [''])
+        lines.extend([line[i:i+13] for i in range(0,len(line),13)] or [''])
     return ['\n'.join(lines[i:i+7]) for i in range(0,len(lines),7)]
 
 def generate():
@@ -32,7 +32,7 @@ def generate():
         for ai,a in enumerate(v['cards']):
             key=f'cast_pages_{vi}_{ai}'; chunks=[]
             sections=[('作品与角色',a['credits'])] if a['credits'] else []
-            sections += [(h['label'],h['text']) for h in a['highlights']]
+            # Stage-feature sections are retired; preserve the archived source only.
             if not sections: sections=[('资料说明','个人作品与经历待补充')]
             sections += [('资料说明',a['notes'])]
             for title,text in sections:
@@ -52,6 +52,7 @@ def generate():
         try: chr(cp).encode('gb2312')
         except UnicodeEncodeError: continue
         glyphs += chr(cp)
+    glyphs += (ROOT/'assets/fonts/catalog-characters.txt').read_text(encoding='utf8')
     inventory=''.join(sorted(set(c for c in glyphs if ord(c)>=32)))
     hashes={n:hashlib.sha256((SRC/n).read_bytes()).hexdigest() for n in ['data.json','index.html']}
     manifest={'source':'/var/minis/shared/cuecards-v4','source_date':d['date'],'sha256':hashes,'cities':7,'venues':8,'actors':len(actors),'glyph_count':len(inventory)}

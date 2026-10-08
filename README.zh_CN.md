@@ -2,6 +2,8 @@
 
 # liulaogen
 
+当前源码为 r5，新增城市时间设置、设备批量管理及完整 15 天简介缓存。参见 [r5 更新说明](docs/r5-update.zh_CN.md)；r4 为此前实机验证版本。
+
 固件与匹配 ELF/MAP：[Wi-Fi r4 下载](https://github.com/YUEB1NG/liulaogen/releases/tag/v0.1.0-liulaogen-wifi-r4)。
 
 在线网站：**https://quyue.pythonanywhere.com**（PythonAnywhere 免费托管）。
@@ -36,7 +38,7 @@ python server.py
 或在支持的 POSIX 环境运行 `bash tools/validate.sh`。
 经校验合并镜像从 **0x0** 写入，会重置配置与缓存；不要把应用单独 BIN 写到 0x0，不全片擦除。
 
-网站在 `website/` 内运行 `python -m unittest -v test_api test_device_link test_hosted test_wsgi`。
+网站在 `website/` 内运行 `python -m unittest -v test_api test_device_link test_hosted test_wsgi test_features`。
 GitHub Actions 执行源码检查；固件按文档中的 IDF 完整验证流程复现。
 开源内容不包含账号凭据、Wi-Fi 密码、私有运行数据、本机工具链、构建产物或原始设备日志。
 

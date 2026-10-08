@@ -14,7 +14,7 @@ Store reusable font files and generated font sources in `fonts/`.
 
 The cast application uses `fonts/NotoSansCJKsc-Cast.otf` (Noto Sans CJK SC,
 SIL Open Font License in `fonts/OFL.txt`) and the shipped `fonts/cast_font_16.c`:
-16 px, 4 bpp, uncompressed, 24 px line height, 6875 code points. The subset,
+16 px, 4 bpp, uncompressed, 24 px line height, 6900 code points. The subset,
 inventory and generated C hashes are recorded in `fonts/cast-font-manifest.json`.
 All application labels select `cast_font_16` explicitly. The original assets
 were generated with Pillow 11.0.0 / FreeType 2.13.3; the Wi-Fi continuation uses
@@ -58,3 +58,5 @@ Store reusable music and sound-effect sources in `music/`.
 - Prefer 16 kHz, 16-bit mono PCM when it matches the current BSP audio path.
 - Check Flash and internal-RAM cost before embedding audio; stream or chunk long recordings.
 - Do not commit media without redistribution permission.
+
+The r5 supplemental inventory in `fonts/catalog-characters.txt` covers the user-supplied October 8 actor names, credits and biographies; its source wording is maintained in the website actor catalog.

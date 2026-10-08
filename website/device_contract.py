@@ -1,5 +1,5 @@
 """The device export contract is checked before a publication is committed."""
-import json
+import json,hashlib
 from pathlib import Path
 
 MAX_BODY=8192
@@ -9,23 +9,40 @@ GLYPHS=set(json.loads((Path(__file__).parent/'data/device-glyphs.json').read_tex
 def encode(value):
     return json.dumps(value,ensure_ascii=False,separators=(',',':')).encode('utf8')
 
+def archive(lineup,profiles,blobs):
+    """Content-addressed pages deduplicate identical biographies across all 15 dates."""
+    def put(value):
+        raw=encode(value)
+        if len(raw)>MAX_BODY:raise ValueError('离线缓存文件超过8192字节')
+        digest=hashlib.sha256(raw).hexdigest();blobs[digest]=value;return digest
+    hashes=[]
+    for v in lineup['venues']:
+        for s in v['sessions']:
+            for g in s['groups']:
+                p=profiles['|'.join(m['id'] for m in g['members'])]
+                hashes.append(put({'members':p['members'],'pages':p['pages']}))
+    return put({'date':lineup['date'],'revision':lineup['revision'],
+                'lineup':put(lineup),'profiles':hashes})
+
 def text(value,label,limit=None):
     if limit and len(value.encode('utf8'))>limit:
         raise ValueError(f'{label}超出设备 {limit} 字节限制（汉字通常占 3 字节）')
     missing=sorted({c for c in value if c!='\n' and ord(c) not in GLYPHS})
     if missing: raise ValueError(f'{label}含设备字库未收录文字：'+''.join(missing[:16]))
 
-def pages(title,body):
+def pages(title,body,columns=11):
+    body=body.replace('\ufe0f','')  # Text presentation; keep source wording intact on the website.
     text(title,'资料标题',24);text(body,'演员资料')
     if len(title)>8: raise ValueError('设备资料标题最多 8 字，请缩短舞台特色标题')
     lines=[]
     for line in body.split('\n'):
-        lines.extend([line[i:i+11] for i in range(0,len(line),11)] or [''])
+        lines.extend([line[i:i+columns] for i in range(0,len(line),columns)] or [''])
     return [{'title':title,'text':'\n'.join(lines[i:i+7])} for i in range(0,len(lines),7)]
 
-def exports(lineup,lookup):
+def exports(lineup,lookup,columns=11):
     count=0;profiles={}
     for venue in lineup['venues']:
+        text(venue['city'],'城市名称',24)
         for session in venue['sessions']:
             for group in session['groups']:
                 count+=1;content=[]
@@ -35,12 +52,9 @@ def exports(lineup,lookup):
                     sections=[]
                     if actor['credits']: sections.append(('作品与角色','\n'.join(actor['credits'])))
                     if actor['bio']: sections.append(('个人简介',actor['bio']))
-                    for item in actor['user_highlights']: sections.append((item['label'],item['text']))
-                    if not actor['user_edited']:
-                        for item in actor['highlights']: sections.append((item['label'],item['text']))
                     if not sections: sections=[('资料说明','资料待补充')]
                     for title,body in sections:
-                        content.extend(pages(title,member['name']+'\n'+body))
+                        content.extend(pages(title,member['name']+'\n'+body,columns))
                 if len(content)>MAX_PAGES:
                     raise ValueError(' · '.join(m['name'] for m in group['members'])+f' 的资料超过设备 {MAX_PAGES} 页，请精简资料后发布')
                 ids=[m['id'] for m in group['members']]

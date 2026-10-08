@@ -10,4 +10,8 @@ config CAST_BASE_URL
         updates unconfigured until an origin is saved. Hotspot connection may
         be configured separately. No Wi-Fi credentials are embedded; requests
         for lineup updates are made manually.
+config CAST_ARCHIVE
+    bool "Keep a complete fifteen-day offline lineup and biography window"
+    depends on CAST_WIFI_PORTAL
+    default y
 endmenu

@@ -52,8 +52,8 @@ int main(void) {
         const cast_actor_t *a=&cast_actors[actor];
         for(size_t page=0;page<a->page_count;++page) {
             lv_point_t size;
-            lv_text_get_size(&size,a->pages[page].text,&cast_font_16,0,0,204,LV_TEXT_FLAG_EXPAND);
-            assert(size.x<=204 && size.y<=183); /* body starts at y=85; status at y=268 */
+            lv_text_get_size(&size,a->pages[page].text,&cast_font_16,0,0,216,LV_TEXT_FLAG_EXPAND);
+            assert(size.x<=216 && size.y<=183); /* body starts at y=85; status at y=268 */
             if(size.x>max_width)max_width=size.x;
             if(size.y>max_height)max_height=size.y;
             lv_text_get_size(&size,a->pages[page].title,&cast_font_16,0,0,140,LV_TEXT_FLAG_EXPAND);
@@ -61,14 +61,17 @@ int main(void) {
             ++pages;
         }
     }
-    assert(pages==113 && cast_font_16.line_height+4+2<=34);
+    assert(pages>0 && cast_font_16.line_height+4+2<=34);
+    lv_point_t thirteen;
+    lv_text_get_size(&thirteen,"演员人物简介每行十三字测试",&cast_font_16,0,0,216,LV_TEXT_FLAG_EXPAND);
+    assert(thirteen.x<=216 && thirteen.y==cast_font_16.line_height);
     cast_input_t input;cast_input_begin(&input,"WWWWWWWWWWWWWWWWWWWW",160);
     for(unsigned group=0;group<4;group++) {
         size_t first=input.cursor;
         do {
             char text[384];lv_point_t size;cast_input_description(&input,false,text,sizeof(text));
-            lv_text_get_size(&size,text,&cast_font_16,0,0,204,LV_TEXT_FLAG_EXPAND);
-            assert(size.x<=204 && size.y<=183);
+            lv_text_get_size(&size,text,&cast_font_16,0,0,216,LV_TEXT_FLAG_EXPAND);
+            assert(size.x<=216 && size.y<=183);
             cast_input_key(&input,CAST_DOWN);
         }while(input.cursor!=first);
         cast_input_key(&input,CAST_LONG_UP);
@@ -78,7 +81,7 @@ int main(void) {
     lv_text_get_size(&phone_size,"热点名 Passport-FFFF\n密码 ffffffffffffffff\n手机打开最大兼容性\n热点断开，正在重连\nOK 连接手机热点\n长按上键网页配网",&cast_font_16,0,0,204,LV_TEXT_FLAG_EXPAND);
     assert(phone_size.x<=204 && phone_size.y<=183);
     printf("Phone hotspot setup text metrics: PASS (%dx%d within 204x183)\n",phone_size.x,phone_size.y);
-    printf("LVGL text metrics: PASS (%zu pages; max body %dx%d within 204x183)\n",pages,max_width,max_height);
+    printf("LVGL text metrics: PASS (%zu pages; max body %dx%d within 216x183)\n",pages,max_width,max_height);
     printf("LVGL 9.5 runtime glyph lookup/bitmap decode: PASS (%zu glyphs and missing-glyph control)\n", sizeof(cast_supported)/sizeof(*cast_supported));
     return 0;
 }

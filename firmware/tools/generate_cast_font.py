@@ -51,9 +51,9 @@ lines += ['};','static const lv_font_fmt_txt_glyph_dsc_t glyph_dsc[] = {'] + des
  ' .get_glyph_dsc=lv_font_get_glyph_dsc_fmt_txt, .get_glyph_bitmap=lv_font_get_bitmap_fmt_txt,',
  ' .line_height=24, .base_line=5, .subpx=LV_FONT_SUBPX_NONE,',
  ' .underline_position=-2, .underline_thickness=1, .dsc=&font_dsc };']
-(OUT/'cast_font_16.c').write_text('\n'.join(lines)+'\n')
+(OUT/'cast_font_16.c').write_text('\n'.join(lines)+'\n', newline='\n')
 paths = ['NotoSansCJKsc-Cast.otf', 'cast_font_16.c', 'cast-glyphs.txt']
 manifest = {'family':'Noto Sans CJK SC Regular', 'converter':'Pillow '+pillow_version+' / FreeType '+features.version_module('freetype2'),
  'size':16, 'bpp':4, 'compressed':False, 'codepoints':sorted(map(ord,text)),
  'sha256':{p:hashlib.sha256((OUT/p).read_bytes()).hexdigest() for p in paths}}
-(OUT/'cast-font-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+(OUT/'cast-font-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n', newline='\n')

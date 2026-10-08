@@ -1,6 +1,10 @@
 // components/bsp/include/bsp_display.h
 // ST7789P3 240x320 显示:SPI 面板初始化 + 厂商专属寄存器 + LEDC 背光调光。
 #pragma once
+#include "esp_err.h"
+/* Drain queued panel pixel transfers with a synchronous ST7789 NOP command.
+ * Call with the LVGL lock after lv_refr_now before enabling startup backlight. */
+esp_err_t bsp_display_flush_wait(void);
 
 #include "esp_err.h"
 #include "esp_lcd_types.h"

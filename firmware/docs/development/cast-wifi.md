@@ -2,6 +2,8 @@
 
 # Cast Wi-Fi and website upload
 
+The r5 implementation supersedes the original single-profile cache and eleven-column layout below: see [r5 behavior and limits](../../../docs/r5-update.md). It uses a 15-day immutable archive with 13-column biographies.
+
 Version `cast-wifi-20261007-r4`, native Windows ESP-IDF 5.5.3, ESP32-C3,
 8 MB Flash, no PSRAM. The accepted offline eight-city application, dataset,
 charcoal/blue interface, backlight fix and navigation remain.

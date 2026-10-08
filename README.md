@@ -2,6 +2,8 @@
 
 # liulaogen
 
+Current source: r5 adds city/time editing, device batch management and a full 15-day biography cache. See [r5 changes](docs/r5-update.md); r4 remains the previously tested hardware release.
+
 Firmware and matched ELF/MAP: [Wi-Fi r4 release](https://github.com/YUEB1NG/liulaogen/releases/tag/v0.1.0-liulaogen-wifi-r4).
 
 Live website: **https://quyue.pythonanywhere.com** (free PythonAnywhere hosting).
@@ -41,7 +43,7 @@ Run `tools/validate.ps1 --all` on an activated Windows environment, or
 The verified merged image belongs at **0x0** and resets stored configuration/cache;
 do not substitute the application-only binary or perform a whole-chip erase.
 
-Website tests: `python -m unittest -v test_api test_device_link test_hosted test_wsgi` inside
+Website tests: `python -m unittest -v test_api test_device_link test_hosted test_wsgi test_features` inside
 `website/`. Source checks run in GitHub Actions; firmware builds remain reproducible
 using the documented IDF gate. No accounts, tokens, Wi-Fi credentials, private
 runtime state, machine toolchains, build output or raw hardware logs are published.

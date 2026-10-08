@@ -1,5 +1,6 @@
 /* One caller: cast_sync worker. Only view/command flags cross task boundaries. */
 #include "cast_remote.h"
+#include "sdkconfig.h"
 #include "cast_network.h"
 #include "cast_protocol.h"
 #include <stdio.h>
@@ -90,7 +91,12 @@ bool cast_remote_poll(cast_remote_job_t *job) {
     cast_remote_view_t current;cast_remote_view(&current);
     char send[224],ack[80]="null",reply[513];unsigned length=0;
     if(identity.ack[0])snprintf(ack,sizeof(ack),"{\"id\":\"%s\",\"result\":\"%s\"}",identity.ack,identity.result==1?"saved":"failed");
-    snprintf(send,sizeof(send),"{\"id\":\"%s\",\"code\":\"%s\",\"ack\":%s}",identity.id,current.code,ack);
+#ifdef CONFIG_CAST_ARCHIVE
+    const unsigned protocol=2;
+#else
+    const unsigned protocol=1;
+#endif
+    snprintf(send,sizeof(send),"{\"id\":\"%s\",\"code\":\"%s\",\"ack\":%s,\"protocol\":%u}",identity.id,current.code,ack,protocol);
     if(!exchange("/api/device/heartbeat",send,reply,sizeof(reply),&length)) {show(response_status==409 && !current.code[0]?REMOTE_READY:REMOTE_ERROR);return false;}
     bool paired=false;
     if(!cast_remote_parse_reply(reply,length,&paired,job)) {show(REMOTE_ERROR);return false;}
