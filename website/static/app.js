@@ -5,32 +5,42 @@ let activeDate='',activeCity='',activeSession='';
 const clone=x=>JSON.parse(JSON.stringify(x));
 const empty=()=>({members:[{id:'',name:''},{id:'',name:''}]});
 function node(tag,text,cls){const n=document.createElement(tag);n.textContent=text;if(cls)n.className=cls;return n;}
-function message(text){$('notice').textContent=text;}
+function message(text,kind='info'){$('notice').textContent=text;$('notice').dataset.kind=kind;}
+function accessView(){document.body.classList.toggle('is-admin',!!csrf);$('workspace-mode').textContent=csrf?'排班工作台':'演出手册';$('workspace-lead').textContent=csrf?'选日期、排演员，再发布到 Passport。':'选一座城市，看看这一场的演员。';}
 async function api(path,body){
  const r=await fetch(path,{credentials:'same-origin',headers:body?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{},method:body?'POST':'GET',body:body?JSON.stringify(body):undefined});
- const d=await r.json();if(!r.ok){if(r.status===401){csrf='';$('account').textContent='排班管理 · 登录';}throw Error(d.error?.message||'请求失败');}return d;
+ const d=await r.json();if(!r.ok){if(r.status===401){csrf='';accessView();$('account').textContent='排班管理 · 登录';}const error=Error(d.error?.message||'请求失败');error.status=r.status;throw error;}return d;
 }
 function auth(){if(csrf)return true;$('login').showModal();return false;}
 function venue(){return draft.venues.find(v=>v.id===activeCity);}
 function current(create=false){let v=venue();if(!v&&create){v={id:activeCity,city:config.cities.find(c=>c.id===activeCity)?.city||'',sessions:[]};draft.venues.push(v);}let s=v?.sessions.find(s=>s.id===activeSession);if(!s&&create){s={id:activeSession,label:config.sessions.find(x=>x.id===activeSession).label,groups:Array.from({length:5},empty)};v.sessions.push(s);}return s;}
 function mark(){dirty=true;render();}
 function render(){
+ accessView();renderSessionTimes();
  const s=current(),groups=s?.groups||Array.from({length:5},empty),words=['零','一','二','三','四','五','六','七','八','九','十'];
  $('count').textContent=`${words[groups.length]||groups.length}组 · ${groups.length*2===10?'十':groups.length*2}位演员`;
  $('groups').replaceChildren();groups.forEach((g,i)=>{const row=node('div','','row');row.append(node('span',String(i+1).padStart(2,'0'),'number'));g.members.forEach((m,j)=>{const b=node('button','','member'+(!m.name?' empty':''));b.append(node('span',m.name||'选择演员'),node('i','›'));b.setAttribute('aria-label',`第${i+1}组第${j+1}位：${m.name||'选择演员'}`);b.onclick=()=>{if(!auth())return;selection=[i,j];$('search').value='';showActors();$('picker').showModal();};row.append(b);});$('groups').append(row);});
- const city=config.cities.find(c=>c.id===activeCity)?.city||'',label=sessionLabel(activeCity,activeSession);
+ const city=(!csrf&&venue()?.city)||config.cities.find(c=>c.id===activeCity)?.city||'',label=sessionLabel(activeCity,activeSession);
+ $('lineup-context').textContent=city+' · '+label;
+ const publicEmpty=!csrf&&!s?.groups?.length;$('public-empty').hidden=!publicEmpty;$('groups').hidden=publicEmpty;
+ if(publicEmpty)$('count').textContent='尚待公布';
+ if(!csrf)$('groups').querySelectorAll('button').forEach(b=>b.disabled=true);
  renderChanges();
- $('status').textContent=`${dirty?'未保存草稿':'草稿'} · ${city}${label} · ${draft.revision?'线上已有 v'+draft.revision+'，草稿修改不影响线上':'该日期尚未发布'}`;
+ $('status').textContent=csrf?`${dirty?'未保存草稿':'草稿'} · ${city}${label} · ${draft.revision?'线上已有 v'+draft.revision+'，草稿修改不影响线上':'该日期尚未发布'}`:`${activeDate} · ${s?'已发布 v'+draft.revision:'本场次尚未发布'}`;
 }
 function showActors(){const query=$('search').value.trim();$('actor-list').replaceChildren();const used=new Set((current()?.groups||[]).flatMap(g=>g.members.map(m=>m.id)));const results=actors.filter(a=>matchesActor(a,query));for(const a of results){const b=node('button','','actor');b.append(node('strong',a.name+(used.has(a.id)?' · 已在本场':'')));b.append(node('small',a.credits.slice(0,2).join(' / ')||'暂无明确作品资料'));if(a.bio)b.append(node('small',a.bio.slice(0,90)));b.onclick=()=>{const s=current(true);if(s.groups.some((g,i)=>g.members.some((m,j)=>m.id===a.id&&!(i===selection[0]&&j===selection[1])))){message('同一场次演员不可重复，请选择其他演员。');return;}
  s.groups[selection[0]].members[selection[1]]={id:a.id,name:a.name};$('picker').close();message('演员已更新，尚未保存。');mark();};$('actor-list').append(b);}if(!results.length)$('actor-list').append(node('p','未找到演员，请检查姓名。','note'));}
-async function load(){draft=csrf?await api('/api/draft?date='+activeDate):{date:activeDate,version:0,revision:0,venues:[]};dirty=false;render();await loadChanges();}
-async function work(fn){if(busy)return;busy=true;document.querySelector('main').inert=true;try{await fn();}catch(e){message(e.message);}finally{busy=false;document.querySelector('main').inert=false;}}
+async function load(){
+ if(csrf)draft=await api('/api/draft?date='+activeDate);
+ else{try{draft=await api('/api/lineup?date='+activeDate);}catch(e){if(e.status!==404)throw e;draft={date:activeDate,version:0,revision:0,venues:[]};}}
+ dirty=false;render();await loadChanges();
+}
+async function work(fn){if(busy)return;const focused=document.activeElement,main=document.querySelector('main');busy=true;document.body.dataset.busy='true';main.inert=true;main.setAttribute('aria-busy','true');try{await fn();}catch(e){message(e.message,'error');}finally{busy=false;delete document.body.dataset.busy;main.inert=false;main.setAttribute('aria-busy','false');if(!document.querySelector('dialog[open]')&&focused?.isConnected&&main.contains(focused)&&!focused.disabled)focused.focus({preventScroll:true});}}
 async function save(){current(true);draft=await api('/api/draft',{date:activeDate,version:draft.version,venues:draft.venues});dirty=false;render();message('草稿已保存，仅管理员可见。');}
 async function init(){try{[config,{actors}]=await Promise.all([api('/api/config'),api('/api/actors')]);for(const c of config.cities){const o=node('option',c.city);o.value=c.id;$('city').append(o);}for(const s of config.sessions){const o=node('option',s.label);o.value=s.id;$('session').append(o);}
  activeDate=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());activeCity=config.cities[0].id;activeSession='evening';$('date').value=activeDate;$('city').value=activeCity;$('session').value=activeSession;renderSessionTimes();
- try{csrf=(await api('/api/session')).csrf;$('account').textContent='管理员 · 退出';}catch{}await load();if(!csrf)message('登录后编辑；历史演员库不会自动填充或发布今日阵容。');
- }catch(e){message('加载失败：'+e.message);}}
+ try{csrf=(await api('/api/session')).csrf;$('account').textContent='管理员 · 退出';}catch{}await load();
+ }catch(e){message('加载失败：'+e.message+'，请刷新页面重试。','error');}}
 $('account').onclick=()=>work(async()=>{if(!csrf){$('login').showModal();return;}if(!confirm(dirty?'确定退出管理员登录？未保存的修改将放弃。':'确定退出管理员登录？'))return;await api('/api/logout',{});csrf='';$('account').textContent='排班管理 · 登录';await load();message('已安全退出。');});
 $('login-form').onsubmit=e=>{e.preventDefault();work(async()=>{try{const form=new FormData(e.target);csrf=(await api('/api/login',Object.fromEntries(form))).csrf;e.target.password.value='';$('login-error').textContent='';$('login').close();$('account').textContent='管理员 · 退出';await load();message('已登录。请选择演员或主动复制上次阵容。');}catch(e){$('login-error').textContent=e.message;}});};
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).close());
@@ -70,23 +80,23 @@ async function refreshDevices(){
  try{const {devices}=await api('/api/devices');if(!$('devices').open)return;
   $('device-list').replaceChildren();
   deviceRows=devices;for(const id of selectedDevices)if(!devices.some(d=>d.id===id))selectedDevices.delete(id);
-  for(const d of devices){const card=node('section');const label=node('label','','device-check'),check=document.createElement('input');check.type='checkbox';check.checked=selectedDevices.has(d.id);check.onchange=()=>{check.checked?selectedDevices.add(d.id):selectedDevices.delete(d.id);selectionButtons();};label.append(check,node('span',d.name+' · '+(d.online?'在线':'离线')));card.append(label);if((d.protocol||1)<2)card.append(node('p','请先升级 r5 固件，再上传新名单。','note'));
+  for(const d of devices){const card=node('section');const label=node('label','','device-check'),check=document.createElement('input');check.type='checkbox';check.checked=selectedDevices.has(d.id);check.onchange=()=>{check.checked?selectedDevices.add(d.id):selectedDevices.delete(d.id);selectionButtons();};label.append(check,node('span',d.name),node('small',d.online?'● 在线':'○ 离线','presence'+(d.online?' online':'')));card.append(label);if((d.protocol||1)<2)card.append(node('p','请先升级 r5 固件，再上传新名单。','note'));
    if(d.delivery)card.append(node('p',`${d.delivery.date} · v${d.delivery.revision} · ${deliveryLabels[d.delivery.status]||'状态未知'}`,'status'));
    const pending=d.delivery&&['queued','transferring'].includes(d.delivery.status);
    const upload=node('button','上传到此设备','primary wide');upload.disabled=!d.online||pending||!selectedUpload;
    upload.onclick=async()=>{if(deviceAction||!selectedUpload)return;deviceAction=true;upload.disabled=true;
     try{await api('/api/devices/upload',{device:d.id,...selectedUpload});$('device-message').textContent='已提交上传任务，进度见下方。';}
     catch(e){$('device-message').textContent=e.message;}finally{deviceAction=false;await refreshDevices();}};
-   const forget=node('button','移除此设备','text');forget.onclick=async()=>{if(deviceAction||!confirm('移除后需在 Passport 重新配对，未完成的上传将取消。'))return;deviceAction=true;
+   const forget=node('button','移除此设备','text danger');forget.onclick=async()=>{if(deviceAction||!confirm('移除后需在 Passport 重新配对，未完成的上传将取消。'))return;deviceAction=true;
     try{await api('/api/devices/forget',{device:d.id});}catch(e){$('device-message').textContent=e.message;}finally{deviceAction=false;await refreshDevices();}};
    const rename=node('button','修改备注','text');rename.onclick=()=>renameDevice(d);card.append(upload,rename,forget);$('device-list').append(card);
   }
-  selectionButtons();if(!devices.length)$('device-list').append(node('p','尚未添加设备，请输入 Passport 上的配对码。','note'));
+  if(!devices.length)document.querySelector('.pairing-panel').open=true;selectionButtons();if(!devices.length)$('device-list').append(node('p','尚未添加设备，请输入 Passport 上的配对码。','note'));
  }catch(e){$('device-message').textContent='设备状态读取失败：'+e.message;$('device-list').replaceChildren();}
  finally{deviceRefreshing=false;}
 }
 $('devices-open').onclick=()=>work(async()=>{if(!auth())return;
- selectedUpload=null;$('device-message').textContent='';
+ selectedUpload=null;document.querySelector('.pairing-panel').open=false;$('device-message').textContent='';
  try{const published=await api('/api/lineup?date='+activeDate);selectedUpload={date:published.date,revision:published.revision};
  $('device-selection').textContent=`所选名单：${published.date} · 已发布 v${published.revision}${dirty?'（未保存草稿不上传）':''}`;
  }catch(e){$('device-selection').textContent='当前日期尚无可上传的发布名单，请先预览并发布。';}

@@ -32,3 +32,5 @@ Original handoff notes remain in `REFERENCE_ORIGINAL.txt` as historical referenc
 No credentials or runtime state belong in the source package.
 
 Free hosting: [PythonAnywhere guide](../docs/hosting.md)
+
+[Website interface and validation](../docs/ui-refresh.md)
