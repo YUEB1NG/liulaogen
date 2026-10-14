@@ -230,8 +230,8 @@ class Handler(BaseHTTPRequestHandler):
         self.headers_common('application/json; charset=utf-8')
         if cookie: self.send_header('Set-Cookie',cookie)
         self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
-    def headers_common(self,ctype):
-        self.send_header('Content-Type',ctype); self.send_header('Cache-Control','no-store')
+    def headers_common(self,ctype,cache='no-store'):
+        self.send_header('Content-Type',ctype); self.send_header('Cache-Control',cache)
         self.send_header('X-Content-Type-Options','nosniff'); self.send_header('X-Frame-Options','DENY')
         self.send_header('Referrer-Policy','no-referrer')
         self.send_header('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
@@ -348,9 +348,12 @@ class Handler(BaseHTTPRequestHandler):
             require(old is not None and old['date']<date,'没有可复制的此前阵容',404)
             return self.reply(200,{'source':'historical_library',**st.canonical(old)})
         files={'/features.js':('features.js','text/javascript; charset=utf-8'),'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8')}
+        for font in ('notosans','notosans-bold','notosans-extras'):
+            files[f'/fonts/{font}.woff2']=(f'fonts/{font}.woff2','font/woff2')
         require(path in files,'接口或文件不存在',404)
         name,ctype=files[path]; body=(ROOT/'static'/name).read_bytes()
-        self.send_response(200); self.headers_common(ctype); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
+        cache='public, max-age=604800' if ctype=='font/woff2' else 'no-store'
+        self.send_response(200); self.headers_common(ctype,cache); self.send_header('Content-Length',str(len(body))); self.end_headers(); self.wfile.write(body)
     def post(self,path,data):
         st=self.store
         if path=='/api/device/heartbeat':

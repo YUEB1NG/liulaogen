@@ -48,6 +48,21 @@ class API(unittest.TestCase):
         self.assertEqual(self.request('/api/lineup?date=2026-10-03',{})[0],404)
         self.assertEqual(self.request('/api/logout',{})[0],200)
         self.assertEqual(self.request('/api/draft?date=2026-10-03')[0],401)
+    def test_self_hosted_fonts_and_cache_boundary(self):
+        for name in ('notosans','notosans-bold','notosans-extras'):
+            c=http.client.HTTPConnection('127.0.0.1',self.port,timeout=5)
+            c.request('GET',f'/fonts/{name}.woff2')
+            r=c.getresponse(); raw=r.read()
+            self.assertEqual(r.status,200)
+            self.assertEqual(r.getheader('Content-Type'),'font/woff2')
+            self.assertEqual(r.getheader('Cache-Control'),'public, max-age=604800')
+            self.assertEqual(raw,(ROOT/'static/fonts'/f'{name}.woff2').read_bytes())
+            c.close()
+        self.assertEqual(self.request('/fonts/../server.py')[0],404)
+        self.assertEqual(self.request('/fonts/unknown.woff2')[0],404)
+        self.assertEqual(self.request('/api/actors')[2]['Cache-Control'],'no-store')
+        self.login()
+        self.assertEqual(self.request('/api/session')[2]['Cache-Control'],'no-store')
     def test_03_draft_isolation_publish_and_revision(self):
         self.login();p=self.save()
         self.assertEqual(self.request('/api/lineup?date=2026-10-03')[0],404)

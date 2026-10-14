@@ -1,26 +1,25 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="dark"><meta name="description" content="查看刘老根大舞台每日演出阵容，管理演员资料，并将已发布名单上传到 AI Passport。"><title>每日演出阵容 · 刘老根大舞台</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script><script src="/features.js" defer></script></head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="dark"><meta name="description" content="查看刘老根大舞台每日演出阵容，管理演员资料，并将已发布名单上传到 AI Passport。"><title>每日演出阵容 · 刘老根大舞台</title><link rel="preload" href="/fonts/notosans.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script><script src="/features.js" defer></script></head>
 <body>
 <a class="skip-link" href="#workspace">跳到演出阵容</a>
 <main class="phone" id="workspace">
-  <header class="site-header"><div class="brand"><span class="brand-mark" aria-hidden="true">刘</span><div><strong>刘老根大舞台</strong><span class="brand-caption">演出阵容 · AI Passport</span></div></div><button id="account" class="text account-button">排班管理 · 登录</button></header>
-  <section class="page-heading"><div><p class="eyebrow" id="workspace-mode">演出手册</p><h1>每日演出阵容</h1><p class="lead" id="workspace-lead">选一座城市，看看这一场的演员。</p></div><span class="edition" aria-hidden="true">好戏，每天见。</span></section>
+  <header class="site-header"><div class="brand"><div><strong>刘老根大舞台</strong><span class="brand-caption">演出阵容 · AI Passport</span></div></div><button id="account" class="text account-button">排班管理 · 登录</button></header>
+  <section class="page-heading"><div><p class="eyebrow" id="workspace-mode">演出手册</p><h1>每日演出阵容</h1><p class="lead" id="workspace-lead">选一座城市，看看这一场的演员。</p></div></section>
   <div class="workspace-grid">
     <aside class="control-column" aria-label="日期与管理">
-      <section class="control-panel"><p class="section-kicker">01 <span>选择场次</span></p><section class="filters" aria-label="排班范围"><label class="date-field">演出日期<div class="date-control"><input id="date" type="date" required aria-label="演出日期"><button id="date-open" type="button" aria-label="选择演出日期">选择日期</button></div></label><label>城市<select id="city"></select></label><label>场次<select id="session"></select></label></section><button id="settings-open" class="text admin-only">城市与演出时间设置 <span aria-hidden="true">↗</span></button></section>
-      <section class="management-panel admin-only" aria-label="管理工具"><p class="section-kicker">管理工具</p><button id="library-open" class="tool-button"><span><strong>演员资料库</strong><small>查找、新增和编辑演员资料</small></span><span aria-hidden="true">↗</span></button><p class="note">资料修改独立保存，发布后才会更新名单。</p></section>
+      <section class="control-panel"><p class="section-kicker">选择场次</p><section class="filters" aria-label="排班范围"><label class="date-field">演出日期<div class="date-control"><input id="date" type="date" required aria-label="演出日期"><button id="date-open" type="button" aria-label="选择演出日期">选择日期</button></div></label><label>城市<select id="city"></select></label><label>场次<select id="session"></select></label></section><button id="settings-open" class="text admin-only">城市与演出时间设置 <span aria-hidden="true">›</span></button></section>
+      <section class="management-panel admin-only" aria-label="管理工具"><p class="section-kicker">管理工具</p><button id="library-open" class="tool-button"><span><strong>演员资料库</strong><small>查找、新增和编辑演员资料</small></span><span aria-hidden="true">›</span></button><p class="note">资料修改独立保存，发布后才会更新名单。</p></section>
       <section class="storage-panel admin-only"><button id="storage-open" class="text" aria-expanded="false" aria-controls="storage-content">存储与服务期限 <span aria-hidden="true">＋</span></button><div id="storage-content" hidden><p id="storage-usage"></p><p id="hosting-expiry"></p><progress id="hosting-progress" max="100" value="0" aria-label="免费服务期限使用进度"></progress><p id="hosting-note" class="note"></p><button id="backup-download" class="wide">下载全部内容备份</button></div></section>
-      <p class="side-caption">随身看阵容，也能离线翻阅。<br>已下载内容保存在你的 Passport。</p>
     </aside>
     <section class="lineup-panel" aria-label="演出阵容">
-      <div class="lineup-top"><div><p class="section-kicker">02 <span id="lineup-context">本场阵容</span></p><h2 id="count">五组 · 十位演员</h2></div><button id="copy" class="text admin-only">复制上次阵容</button></div>
+      <div class="lineup-top"><div><p class="section-kicker"><span id="lineup-context">本场阵容</span></p><h2 id="count">五组 · 十位演员</h2></div><button id="copy" class="text admin-only">复制上次阵容</button></div>
       <div class="changes-panel admin-only"><span class="small-label">前一日对比</span><p id="day-changes" class="note" role="status"></p></div>
-      <div id="public-empty" class="empty-state" hidden><span class="empty-mark" aria-hidden="true">—</span><h3>这一场，敬请期待</h3><p>该场次尚未发布演员名单。<br>可以切换日期、城市或场次查看。</p></div>
+      <div id="public-empty" class="empty-state" hidden><h3>暂无已发布名单</h3><p>该场次尚未发布演员名单。<br>可以切换日期、城市或场次查看。</p></div>
       <div id="groups" aria-label="演员分组"></div>
       <div class="group-tools admin-only"><button id="remove" class="text">− 减少一组</button><button id="add" class="text">＋ 增加一组</button></div>
       <div class="save-status"><p id="status" class="status" role="status">正在读取阵容…</p><button id="reload-draft" class="text admin-only">重新加载草稿</button></div>
       <p id="notice" class="notice" role="status" aria-live="polite"></p>
-      <footer class="publish-actions admin-only"><div class="action-pair"><button id="save">保存草稿</button><button id="preview" class="primary">预览并发布 <span aria-hidden="true">→</span></button></div><button id="devices-open" class="wide device-entry">上传到设备 <span aria-hidden="true">↗</span></button><p class="note">发布后再上传；收到设备保存回执，才算更新完成。</p></footer>
+      <footer class="publish-actions admin-only"><div class="action-pair"><button id="save">保存草稿</button><button id="preview" class="primary">预览并发布 <span aria-hidden="true">→</span></button></div><button id="devices-open" class="wide device-entry">上传到设备 <span aria-hidden="true">›</span></button><p class="note">发布后再上传；收到设备保存回执，才算更新完成。</p></footer>
     </section>
   </div>
   <div class="page-footer"><span>刘老根大舞台 · 演出手册</span><span>以现场实际演出为准</span></div>
