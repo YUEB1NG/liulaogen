@@ -48,6 +48,27 @@ class API(unittest.TestCase):
         self.assertEqual(self.request('/api/lineup?date=2026-10-03',{})[0],404)
         self.assertEqual(self.request('/api/logout',{})[0],200)
         self.assertEqual(self.request('/api/draft?date=2026-10-03')[0],401)
+    def test_overview_permissions_and_public_dates(self):
+        self.assertEqual(self.request('/api/overview')[0],401)
+        self.assertEqual(self.request('/api/published-dates')[1],{'dates':[]})
+        self.login();publication=self.save();self.request('/api/publish',publication)
+        self.server.store.state['audit'].append({'action':'actor_update','id':'test','at':'2026-10-26T00:00:00Z'})
+        code,data,headers=self.request('/api/overview')
+        self.assertEqual(code,200);self.assertEqual(headers['Cache-Control'],'no-store')
+        self.assertEqual(data['counts']['published_dates'],1)
+        self.assertEqual(data['recent'][0]['date'],'2026-10-03')
+        self.assertEqual(set(data['recent'][0]),{'date','revision','at'})
+        self.assertNotIn('token',json.dumps(data))
+        self.assertEqual(self.request('/api/published-dates')[1]['dates'][0],
+                         {'date':'2026-10-03','revision':1,'cities':1})
+    def test_static_assets_do_not_wait_for_store_lock(self):
+        # A font response must complete even while another operation owns state.
+        with self.server.store.lock:
+            c=http.client.HTTPConnection('127.0.0.1',self.port,timeout=2)
+            try:
+                c.request('GET','/fonts/notosans.woff2')
+                r=c.getresponse();self.assertEqual(r.status,200);self.assertTrue(r.read())
+            finally:c.close()
     def test_self_hosted_fonts_and_cache_boundary(self):
         for name in ('notosans','notosans-bold','notosans-extras'):
             c=http.client.HTTPConnection('127.0.0.1',self.port,timeout=5)

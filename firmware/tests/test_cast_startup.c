@@ -8,7 +8,7 @@
 #include "../main/main.c"
 
 static jmp_buf reached_loop;
-static int fail_at, brightness, labels, city_labels;
+static int fail_at, brightness, labels, city_labels, text_writes;
 static bool locked, initialized, rendered, buttons_ready;
 static lv_obj_t objects[32];
 static char contents[32][512];
@@ -88,11 +88,12 @@ void cast_date_step(char date[11],int direction) { (void)date;(void)direction; }
 
 uint32_t lv_color_hex(uint32_t color) { assert(locked);return color; }
 lv_obj_t *lv_screen_active(void) { assert(locked);return &objects[31]; }
-lv_obj_t *lv_label_create(lv_obj_t *parent) { assert(locked && parent && labels<31);return &objects[labels++]; }
+lv_obj_t *lv_label_create(lv_obj_t *parent) { assert(locked && parent && labels<31);contents[labels][0]=0;return &objects[labels++]; }
+const char *lv_label_get_text(const lv_obj_t *object) { assert(locked && object);return contents[object-objects]; }
 void lv_label_set_text(lv_obj_t *object,const char *text) {
     assert(locked && object && text);
     assert(strlen(text)<sizeof(contents[0]));
-    strcpy(contents[object-objects],text);
+    strcpy(contents[object-objects],text);text_writes++;
     for (int i=0;i<8;++i) if(strcmp(text,cast_cities[i])==0) ++city_labels;
 }
 void lv_obj_set_style_text_font(lv_obj_t *o,const lv_font_t *font,int selector) {
@@ -238,6 +239,14 @@ int main(void) {
     network.state=NET_FAILED;setup_key(CAST_OK);assert(setup_page==SETUP_MENU);
     puts("Wi-Fi UI: PASS (setup entry, explicit clear/cancel, return, clock-unavailable actions; radio boundary mocked)");
 #endif
+    assert(bsp_lvgl_lock(-1));
+    set_label_text(heading,"选择城市");
+    int writes=text_writes;
+    for(int i=0;i<100;i++)set_label_text(heading,"选择城市");
+    assert(text_writes==writes); /* Repeated refreshes preserve the label buffer. */
+    set_label_text(heading,"选择场次");assert(text_writes==writes+1);
+    bsp_lvgl_unlock();
+    puts("Unchanged label refresh: PASS (100 refreshes without replacement)");
     return 0;
 }
 

@@ -2,6 +2,16 @@
 
 # liulaogen
 
+本机新版后台截图，使用测试名单，不代表真实演出安排
+
+![r6 admin preview](docs/images/r6-admin-desktop.png)
+
+面向 AI Passport 的随身演出手册，从手机排班到离线查看。
+
+[新版界面与验收状态](docs/r6-interface.zh_CN.md)
+
+[设计来源与许可](docs/design-sources.zh_CN.md)
+
 当前固件为 r5，已烧录并独立校验。用户确认显示正常、按键顺畅、无明显开机闪屏；网站上传及离线内容仍待实机验收。
 
 [r5 更新说明](docs/r5-update.zh_CN.md)

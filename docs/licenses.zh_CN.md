@@ -9,3 +9,5 @@
 
 用户提供的历史资料与图片保留来源上下文；历史介绍不是今日名单，也不是独立事实核验。
 MIT 声明不会重新授权第三方商标或资产。
+
+网页本地依赖 Motion 使用 MIT 许可，Lucide 图标使用 ISC 许可；适配的 shadcn/ui 按钮规范保留 MIT 声明。版本、来源和原许可位于 website/static/vendor。

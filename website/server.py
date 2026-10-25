@@ -217,6 +217,17 @@ class Store:
             out.append({'id':vid,'city':city_map[vid]['city'],'sessions':sorted(clean,key=lambda s:list(SESSIONS).index(s['id']))})
         return sorted(out,key=lambda v:[c['id'] for c in cities].index(v['id']))
 
+STATIC_FILES = {
+    '/': ('index.html', 'text/html; charset=utf-8'),
+    '/style.css': ('style.css', 'text/css; charset=utf-8'),
+    **{f'/{name}.js': (f'{name}.js', 'text/javascript; charset=utf-8')
+       for name in ('app', 'features', 'motion-ui', 'workspace')},
+    '/vendor/motion.js': ('vendor/motion.js', 'text/javascript; charset=utf-8'),
+    '/vendor/icons.svg': ('vendor/icons.svg', 'image/svg+xml'),
+    **{f'/fonts/{name}.woff2': (f'fonts/{name}.woff2', 'font/woff2')
+       for name in ('notosans', 'notosans-bold', 'notosans-extras')},
+}
+
 class Handler(BaseHTTPRequestHandler):
     server_version='CastLocal/1'
     def setup(self):
@@ -273,6 +284,10 @@ class Handler(BaseHTTPRequestHandler):
                 try: data=json.loads(raw)
                 except (ValueError,UnicodeError): raise Problem(400,'JSON 无效')
                 require(isinstance(data,dict),'请求体应为对象',400)
+            # Static assets never touch mutable state. A slow font download must
+            # not hold the lock needed by device heartbeats or save operations.
+            if not post and (u.path in STATIC_FILES or u.path=='/healthz'):
+                return self.get(u.path,q)
             with self.store.lock:
                 if post:
                     self.post(u.path,data)
@@ -282,6 +297,19 @@ class Handler(BaseHTTPRequestHandler):
     def get(self,path,q):
         st=self.store
         if path=='/healthz':return self.reply(200,{'ok':True})
+        if path=='/api/published-dates':
+            return self.reply(200,{'dates':[{'date':date,'revision':v['revision'],
+                'cities':len(v['venues'])} for date,v in sorted(st.state['published'].items(),reverse=True)]})
+        if path=='/api/overview':
+            self.session()
+            devices=st.device_link.listing()['devices']
+            counts={'actors':len(st.actors),'cities':len(st.state['settings']['cities']),
+                    'draft_dates':len(st.state['drafts']),'published_dates':len(st.state['published']),
+                    'devices':len(devices),'online':sum(d['online'] for d in devices),
+                    'pending':sum(bool(d.get('delivery') and d['delivery']['status'] in ('queued','transferring')) for d in devices),
+                    'failed':sum(bool(d.get('delivery') and d['delivery']['status']=='failed') for d in devices)}
+            recent=[{k:row[k] for k in ('date','revision','at')} for row in reversed([a for a in st.state.get('audit',[]) if all(k in a for k in ('date','revision','at'))][-12:])]
+            return self.reply(200,{'counts':counts,'recent':recent,'storage':st.storage_info()})
         if path=='/api/devices':self.session();return self.reply(200,st.device_link.listing())
         if path=='/api/device/content':
             require(set(q)=={'id','job'} and all(len(v)==1 for v in q.values()),'设备参数无效')
@@ -347,9 +375,7 @@ class Handler(BaseHTTPRequestHandler):
             old=st.history.get((vid,sid))
             require(old is not None and old['date']<date,'没有可复制的此前阵容',404)
             return self.reply(200,{'source':'historical_library',**st.canonical(old)})
-        files={'/features.js':('features.js','text/javascript; charset=utf-8'),'/':('index.html','text/html; charset=utf-8'),'/app.js':('app.js','text/javascript; charset=utf-8'),'/style.css':('style.css','text/css; charset=utf-8')}
-        for font in ('notosans','notosans-bold','notosans-extras'):
-            files[f'/fonts/{font}.woff2']=(f'fonts/{font}.woff2','font/woff2')
+        files=STATIC_FILES
         require(path in files,'接口或文件不存在',404)
         name,ctype=files[path]; body=(ROOT/'static'/name).read_bytes()
         cache='public, max-age=604800' if ctype=='font/woff2' else 'no-store'

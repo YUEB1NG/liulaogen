@@ -54,6 +54,14 @@ static QueueHandle_t keys;
 static cast_state_t state;
 static lv_obj_t *heading, *context, *battery, *rows[8], *body, *footer, *status;
 static const char *TAG = "cast";
+/* Preserve scrolling and avoid reallocating unchanged label contents.
+ * The application already holds the shared LVGL lock at every call site. */
+static void set_label_text(lv_obj_t *object, const char *text)
+{
+    if (strcmp(lv_label_get_text(object), text) != 0)
+        lv_label_set_text(object, text);
+}
+
 #ifdef CONFIG_CAST_WIFI_PORTAL
 static void setup_scan(void) {
     scan_generation=network.scan_generation;setup_selection=0;
@@ -143,9 +151,9 @@ static void setup_render(void) {
     else strcpy(b,network.state_generation==result_generation?setup_message:network.state==NET_SAVED?(result_service?"服务地址已保存":network.connected?"连接成功，已保存":"配置已保存"):network.state==NET_FAILED?"连接失败，请重试":network.state==NET_STORAGE_FAILED?"保存失败，请重试":setup_message);
     for(unsigned i=0;i<8;i++)lv_obj_add_flag(rows[i],LV_OBJ_FLAG_HIDDEN);
     lv_obj_remove_flag(body,LV_OBJ_FLAG_HIDDEN);
-    lv_label_set_text(heading,title);lv_label_set_text(context,detail);lv_label_set_text(body,b);
-    lv_label_set_text(status,*setup_message && setup_page!=SETUP_RESULT?setup_message:network.connected?"Wi-Fi 已连接":"Wi-Fi 未连接");
-    lv_label_set_text(footer,"OK 选择 长按确定返回");
+    set_label_text(heading,title);set_label_text(context,detail);set_label_text(body,b);
+    set_label_text(status,*setup_message && setup_page!=SETUP_RESULT?setup_message:network.connected?"Wi-Fi 已连接":"Wi-Fi 未连接");
+    set_label_text(footer,"OK 选择 长按确定返回");
 }
 #endif
 
@@ -187,16 +195,16 @@ static lv_obj_t *label(lv_obj_t *parent, int x, int y, int w, int h)
     lv_obj_set_pos(o, x, y);
     lv_obj_set_size(o, w, h);
     lv_obj_set_style_text_font(o, &cast_font_16, 0);
-    lv_obj_set_style_text_color(o, lv_color_hex(0xEEF0F3), 0);
+    lv_obj_set_style_text_color(o, lv_color_hex(0x151B27), 0);
     lv_obj_set_style_text_line_space(o, 0, 0);
     lv_label_set_long_mode(o, LV_LABEL_LONG_CLIP);
-    lv_label_set_text(o, "");
+    set_label_text(o, "");
     return o;
 }
 static void create_ui(void)
 {
     lv_obj_t *screen = lv_screen_active();
-    lv_obj_set_style_bg_color(screen, lv_color_hex(0x202122), 0);
+    lv_obj_set_style_bg_color(screen, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, 0);
     lv_obj_remove_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
     heading = label(screen, 18, 16, 140, 27);
@@ -204,7 +212,7 @@ static void create_ui(void)
     lv_obj_set_style_text_align(battery, LV_TEXT_ALIGN_RIGHT, 0);
     context = label(screen, 18, 45, 204, 32);
     lv_label_set_long_mode(context, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_set_style_text_color(context, lv_color_hex(0xA9B2C0), 0);
+    lv_obj_set_style_text_color(context, lv_color_hex(0x526078), 0);
     for (int i = 0; i < 8; ++i) {
         rows[i] = label(screen, 12, 80 + i * 38, 216, 34);
         lv_obj_set_style_bg_opa(rows[i], LV_OPA_COVER, 0);
@@ -212,12 +220,12 @@ static void create_ui(void)
         lv_obj_set_style_pad_left(rows[i], 8, 0);
         lv_obj_set_style_pad_top(rows[i], 4, 0);
         lv_obj_set_style_border_width(rows[i], 1, 0);
-        lv_obj_set_style_border_color(rows[i], lv_color_hex(0x343A43), 0);
+        lv_obj_set_style_border_color(rows[i], lv_color_hex(0xDCE2EC), 0);
     }
     body = label(screen, 12, 85, 216, 183);
     status = label(screen,18,268,204,24);
     footer = label(screen,18,292,204,24);
-    lv_obj_set_style_text_color(footer, lv_color_hex(0xA9B2C0), 0);
+    lv_obj_set_style_text_color(footer, lv_color_hex(0x526078), 0);
 }
 static void render(void)
 {
@@ -234,23 +242,23 @@ static void render(void)
     } else if(state.level==CAST_ACTOR) {count=cast_group_count(state.venue);selected=state.actor;}
     if(reader) {
         const cast_actor_t *a=cast_profile(state.venue,state.actor);
-        title=a->pages[state.page].title;lv_label_set_text(body,a->pages[state.page].text);
+        title=a->pages[state.page].title;set_label_text(body,a->pages[state.page].text);
         snprintf(text,sizeof(text),"%s",cast_group_name(state.venue,state.actor));
     } else if(sync) {
         title="在线更新";
         snprintf(text,sizeof(text),"%s",request_date);
-        char b[256];snprintf(b,sizeof(b),"%s\n上下调整日期\nOK 立即检查更新\n\n发布时段 18:00-20:00\n无自动轮询",status_text());lv_label_set_text(body,b);
+        char b[256];snprintf(b,sizeof(b),"%s\n上下调整日期\nOK 立即检查更新\n\n发布时段 18:00-20:00\n无自动轮询",status_text());set_label_text(body,b);
 #ifdef CONFIG_CAST_WIFI_PORTAL
         snprintf(b,sizeof(b),"%s\n%s\n上下调整日期\nOK 立即检查更新\n长按上键配置网络\n长按下键使用今日",status_text(),network.connected?"网络已连接":"网络未连接");
-        lv_label_set_text(body,b);
+        set_label_text(body,b);
 #endif
     } else if(city) snprintf(text,sizeof(text),"%s",cast_display_date());
     else snprintf(text,sizeof(text),"%s %s",cast_city_name(state.city),state.level==CAST_ACTOR?cast_session_label(state.venue):cast_display_date());
-    lv_label_set_text(heading,title);lv_label_set_text(context,text);
+    set_label_text(heading,title);set_label_text(context,text);
     bool empty=!city && !sync && !reader && !count;
     if(reader || sync || empty) lv_obj_remove_flag(body,LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(body,LV_OBJ_FLAG_HIDDEN);
-    if(empty) lv_label_set_text(body,"阵容待更新\n该城市名单尚未提供");
+    if(empty) set_label_text(body,"阵容待更新\n该城市名单尚未提供");
     size_t start=city?selected/8*8:selected/5*5;
     for(size_t i=0;i<8;i++) {
         size_t index=start+i;
@@ -263,10 +271,10 @@ static void render(void)
         else if(state.level==CAST_SESSION) {
             name=cast_session_label(cast_session_index(state.city,index));if(!*name)name="阵容待更新";
         } else name=cast_group_name(state.venue,index);
-        lv_label_set_text(rows[i],name);
+        set_label_text(rows[i],name);
         lv_label_set_long_mode(rows[i],index==selected?LV_LABEL_LONG_SCROLL_CIRCULAR:LV_LABEL_LONG_CLIP);
-        lv_obj_set_style_bg_color(rows[i],lv_color_hex(index==selected?0x1D3556:0x2B2D30),0);
-        lv_obj_set_style_border_color(rows[i],lv_color_hex(index==selected?0x397FFC:0x383A3E),0);
+        lv_obj_set_style_bg_color(rows[i],lv_color_hex(index==selected?0xDFEAFE:0xF5F7FA),0);
+        lv_obj_set_style_border_color(rows[i],lv_color_hex(index==selected?0x245BD6:0xDCE2EC),0);
     }
     if(sync) snprintf(text,sizeof(text),"名单日期 %s",request_date);
     else if(reader) snprintf(text,sizeof(text),"%u/%u 仅供历史参考",(unsigned)state.page+1,(unsigned)cast_profile(state.venue,state.actor)->page_count);
@@ -280,8 +288,8 @@ static void render(void)
                  downloaded?"已存在线资料":profile_busy?"资料更新中":"历史资料或待补充");
     }
 #endif
-    lv_label_set_text(status,text);
-    lv_label_set_text(footer,city?"OK进入 长按确定更新":reader?"上/下翻页 长按返回":"OK进入 长按确定返回");
+    set_label_text(status,text);
+    set_label_text(footer,city?"OK进入 长按确定更新":reader?"上/下翻页 长按返回":"OK进入 长按确定返回");
 }
 void app_main(void)
 {
@@ -364,9 +372,9 @@ void app_main(void)
             char value[16];
             if (soc < 0) snprintf(value, sizeof(value), "--%%");
             else snprintf(value, sizeof(value), "%d%%", soc);
-            lv_label_set_text(battery, value);
+            set_label_text(battery, value);
             render();
-            if (err != ESP_OK) lv_label_set_text(footer, "按键初始化失败");
+            if (err != ESP_OK) set_label_text(footer, "按键初始化失败");
             bsp_lvgl_unlock();
         }
     }

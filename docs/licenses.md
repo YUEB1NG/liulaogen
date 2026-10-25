@@ -13,3 +13,5 @@ records component versions. Keep source attribution and license notices intact.
 The supplied historical cast library and images are retained with their source
 context; historical descriptions are not today's lineup or independent fact
 verification. This MIT notice does not relicense third-party trademarks or assets.
+
+Vendored Motion uses MIT; Lucide icons use ISC. The adapted shadcn/ui button conventions retain the MIT notice. Versions, source URLs and original notices are in website/static/vendor.

@@ -19,12 +19,12 @@ function render(){
  accessView();renderSessionTimes();
  const s=current(),groups=s?.groups||Array.from({length:5},empty),words=['零','一','二','三','四','五','六','七','八','九','十'];
  $('count').textContent=`${words[groups.length]||groups.length}组 · ${groups.length*2===10?'十':groups.length*2}位演员`;
- $('groups').replaceChildren();groups.forEach((g,i)=>{const row=node('div','','row');row.append(node('span',String(i+1).padStart(2,'0'),'number'));g.members.forEach((m,j)=>{const b=node('button','','member'+(!m.name?' empty':''));b.append(node('span',m.name||'选择演员'),node('i','›'));b.setAttribute('aria-label',`第${i+1}组第${j+1}位：${m.name||'选择演员'}`);b.onclick=()=>{if(!auth())return;selection=[i,j];$('search').value='';showActors();$('picker').showModal();};row.append(b);});$('groups').append(row);});
+ $('groups').replaceChildren();groups.forEach((g,i)=>{const row=node('div','','row');row.append(node('span',String(i+1).padStart(2,'0'),'number'));g.members.forEach((m,j)=>{const b=node('button','','member'+(!m.name?' empty':''));b.append(node('span',m.name||'选择演员'),node('i','›'));b.setAttribute('aria-label',`第${i+1}组第${j+1}位：${m.name||'选择演员'}`);b.onclick=()=>{if(!csrf){showPublicProfile(g,b.querySelector("span"));return;}selection=[i,j];$('search').value='';showActors();$('picker').showModal();};row.append(b);});$('groups').append(row);});
  const city=(!csrf&&venue()?.city)||config.cities.find(c=>c.id===activeCity)?.city||'',label=sessionLabel(activeCity,activeSession);
  $('lineup-context').textContent=city+' · '+label;
  const publicEmpty=!csrf&&!s?.groups?.length;$('public-empty').hidden=!publicEmpty;$('groups').hidden=publicEmpty;
  if(publicEmpty)$('count').textContent='尚待公布';
- if(!csrf)$('groups').querySelectorAll('button').forEach(b=>b.disabled=true);
+ if(!csrf)$('groups').querySelectorAll('button').forEach((b,i)=>b.disabled=!groups[Math.floor(i/2)].members[i%2].id);
  renderChanges();
  $('status').textContent=csrf?`${dirty?'未保存草稿':'草稿'} · ${city}${label} · ${draft.revision?'线上已有 v'+draft.revision+'，草稿修改不影响线上':'该日期尚未发布'}`:`${activeDate} · ${s?'已发布 v'+draft.revision:'本场次尚未发布'}`;
 }
@@ -72,34 +72,37 @@ $('actor-form').onsubmit=async e=>{e.preventDefault();if(actorSaving)return;acto
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
 window.addEventListener('DOMContentLoaded',init);
 
-let deviceRefreshing=false,deviceAction=false,selectedUpload=null,deviceTimer;
+let deviceRefreshing=false,deviceAction=false,selectedUpload=null,deviceTimer,deviceSnapshot='';
 const deliveryLabels={queued:'等待设备',transferring:'传输中，等待保存回执',saved:'设备已保存',failed:'上传失败，旧名单保留'};
 async function refreshDevices(){
  if(deviceRefreshing||deviceAction||!$('devices').open||!csrf)return;
  deviceRefreshing=true;
  try{const {devices}=await api('/api/devices');if(!$('devices').open)return;
+  const snapshot=JSON.stringify([devices,selectedUpload,[...selectedDevices]]);if(snapshot===deviceSnapshot&&$('device-list').children.length){selectionButtons();return;}deviceSnapshot=snapshot;
+  const focus=document.activeElement,focusKey=focus?.dataset.deviceFocus;
   $('device-list').replaceChildren();
   deviceRows=devices;for(const id of selectedDevices)if(!devices.some(d=>d.id===id))selectedDevices.delete(id);
-  for(const d of devices){const card=node('section');const label=node('label','','device-check'),check=document.createElement('input');check.type='checkbox';check.checked=selectedDevices.has(d.id);check.onchange=()=>{check.checked?selectedDevices.add(d.id):selectedDevices.delete(d.id);selectionButtons();};label.append(check,node('span',d.name),node('small',d.online?'● 在线':'○ 离线','presence'+(d.online?' online':'')));card.append(label);if((d.protocol||1)<2)card.append(node('p','请先升级 r5 固件，再上传新名单。','note'));
+  for(const d of devices){const card=node('section');const label=node('label','','device-check'),check=document.createElement('input');check.type='checkbox';check.dataset.deviceFocus=d.id+':select';check.checked=selectedDevices.has(d.id);check.onchange=()=>{check.checked?selectedDevices.add(d.id):selectedDevices.delete(d.id);selectionButtons();};label.append(check,node('span',d.name),node('small',d.online?'在线':'离线','presence'+(d.online?' online':'')));card.append(label);if((d.protocol||1)<2)card.append(node('p','请先升级 r5 固件，再上传新名单。','note'));
    if(d.delivery)card.append(node('p',`${d.delivery.date} · v${d.delivery.revision} · ${deliveryLabels[d.delivery.status]||'状态未知'}`,'status'));
    const pending=d.delivery&&['queued','transferring'].includes(d.delivery.status);
-   const upload=node('button','上传到此设备','primary wide');upload.disabled=!d.online||pending||!selectedUpload;
+   const upload=node('button','上传到此设备','primary wide');upload.dataset.deviceFocus=d.id+':upload';upload.disabled=!d.online||pending||!selectedUpload;
    upload.onclick=async()=>{if(deviceAction||!selectedUpload)return;deviceAction=true;upload.disabled=true;
     try{await api('/api/devices/upload',{device:d.id,...selectedUpload});$('device-message').textContent='已提交上传任务，进度见下方。';}
     catch(e){$('device-message').textContent=e.message;}finally{deviceAction=false;await refreshDevices();}};
    const forget=node('button','移除此设备','text danger');forget.onclick=async()=>{if(deviceAction||!confirm('移除后需在 Passport 重新配对，未完成的上传将取消。'))return;deviceAction=true;
     try{await api('/api/devices/forget',{device:d.id});}catch(e){$('device-message').textContent=e.message;}finally{deviceAction=false;await refreshDevices();}};
-   const rename=node('button','修改备注','text');rename.onclick=()=>renameDevice(d);card.append(upload,rename,forget);$('device-list').append(card);
+   forget.dataset.deviceFocus=d.id+':forget';const rename=node('button','修改备注','text');rename.dataset.deviceFocus=d.id+':rename';rename.onclick=()=>renameDevice(d);card.append(upload,rename,forget);$('device-list').append(card);
   }
+  if(focusKey){const next=[...$('device-list').querySelectorAll('[data-device-focus]')].find(n=>n.dataset.deviceFocus===focusKey);if(next&&!next.disabled)next.focus({preventScroll:true});}
   if(!devices.length)document.querySelector('.pairing-panel').open=true;selectionButtons();if(!devices.length)$('device-list').append(node('p','尚未添加设备，请输入 Passport 上的配对码。','note'));
  }catch(e){$('device-message').textContent='设备状态读取失败：'+e.message;$('device-list').replaceChildren();}
  finally{deviceRefreshing=false;}
 }
 $('devices-open').onclick=()=>work(async()=>{if(!auth())return;
- selectedUpload=null;document.querySelector('.pairing-panel').open=false;$('device-message').textContent='';
+ selectedUpload=null;deviceSnapshot='';document.querySelector('.pairing-panel').open=false;$('device-message').textContent='';
  try{const published=await api('/api/lineup?date='+activeDate);selectedUpload={date:published.date,revision:published.revision};
  $('device-selection').textContent=`所选名单：${published.date} · 已发布 v${published.revision}${dirty?'（未保存草稿不上传）':''}`;
- }catch(e){$('device-selection').textContent='当前日期尚无可上传的发布名单，请先预览并发布。';}
+ }catch(e){if(e.status!==404)throw e;$('device-selection').textContent='当前日期尚无可上传的发布名单，请先预览并发布。';}
  $('devices').showModal();await refreshDevices();clearInterval(deviceTimer);deviceTimer=setInterval(refreshDevices,4000);
 });
 $('devices').addEventListener('close',()=>clearInterval(deviceTimer));

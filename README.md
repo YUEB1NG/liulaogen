@@ -2,6 +2,16 @@
 
 # liulaogen
 
+Local interface preview with test lineups, not a real performance schedule
+
+![r6 admin preview](docs/images/r6-admin-desktop.png)
+
+A pocket cast handbook for AI Passport, from phone scheduling to offline reading.
+
+[New interface and validation](docs/r6-interface.md)
+
+[Design sources and licenses](docs/design-sources.md)
+
 Current firmware: r5. The device has been flashed and independently verified; the user reports normal display, responsive buttons and no obvious startup flicker. Website upload and offline-content acceptance remain pending.
 
 [r5 changes](docs/r5-update.md)

@@ -30,3 +30,5 @@ void lv_obj_add_flag(lv_obj_t *, int);
 
 void lv_refr_now(void *display);
 esp_err_t bsp_display_flush_wait(void);
+
+const char *lv_label_get_text(const lv_obj_t *object);
