@@ -1,4 +1,6 @@
-<p align="center"><img src="docs/brand/cover.svg" width="100%" alt="liulaogen" /></p>
+<p align="center"><img src="docs/brand/cover-ai-20261026.png" width="100%" alt="liulaogen" /></p>
+
+<p align="center"><sub>AI 概念封面 · 真实界面与模型检查见下文</sub></p>
 [English](README.en.md)
 
 <p align="center"><a href="https://github.com/YUEB1NG/liulaogen/actions/workflows/checks.yml"><img src="https://github.com/YUEB1NG/liulaogen/actions/workflows/checks.yml/badge.svg" alt="Build checks" /></a> <a href="LICENSE"><img src="https://img.shields.io/badge/code-MIT-111827?style=flat-square" alt="MIT license" /></a> <img src="https://img.shields.io/badge/ESP--IDF-5.5.3-2563eb?style=flat-square" alt="ESP--IDF-5.5.3" /></p>
