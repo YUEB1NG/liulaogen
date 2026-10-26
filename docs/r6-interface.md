@@ -2,8 +2,10 @@
 
 # r6 interface review
 
-This is a locally verified candidate, not a deployed release. r5 remains the last
-user-accepted hardware version. No r6 flash, GitHub push or hosted deployment has occurred.
+The r6 source and interface screenshots are now published on GitHub. The hosted
+website rollout remains pending because this development machine cannot establish
+a TLS connection to PythonAnywhere. r5 remains the last user-accepted hardware
+version; r6 has not been flashed.
 
 - Unified light interface and self-hosted fonts, local Lucide icons and reduced-motion support.
 - Previous/next/today navigation, published dates, frozen published actor introductions and a phone-first help guide.
