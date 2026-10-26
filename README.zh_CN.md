@@ -52,6 +52,17 @@ python server.py
 [验证记录](docs/status.zh_CN.md)
 
 
+
+## 使用与 API
+
+[HTTP API 文档](docs/API.zh_CN.md) 包含鉴权、公开读取、草稿和发布版本、设备保存回执。启动网站后，可用标准库示例读取公开信息，不改变内容：
+
+```sh
+python website/examples/read_public_api.py
+```
+
+从仓库根目录运行。在网站中使用本机凭据登录，选择日期、保存草稿、预览并发布，再明确上传到已配对的在线设备。发布本身不触发设备上传。开发检查与问题反馈见 [贡献说明](CONTRIBUTING.md)。
+
 ## 从网站到设备
 
 ```mermaid

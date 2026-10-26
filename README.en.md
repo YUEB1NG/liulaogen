@@ -54,6 +54,17 @@ See the hosting guide for deployment. The hosted demo uses PythonAnywhere; GitHu
 [verification status](docs/status.md)
 
 
+
+## Usage and API
+
+The [HTTP API guide](docs/API.md) covers authentication, public reads, draft/publication versions and device saved receipts. With the server running, this standard-library example reads public metadata without changing content:
+
+```sh
+python website/examples/read_public_api.py
+```
+
+Run from the repository root. In the website, log in using local credentials, select a date, save and preview the draft, publish, then explicitly upload to a paired online device. Publication alone does not deliver content. See [contribution guidance](CONTRIBUTING.md) for checks and bug reports.
+
 ## From website to device
 
 ```mermaid

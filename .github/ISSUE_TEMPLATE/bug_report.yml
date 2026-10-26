@@ -1,0 +1,28 @@
+name: Bug report / 问题反馈
+description: Report a reproducible problem / 提交可复现问题
+body:
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction / 复现步骤
+      description: Include commands, inputs and where the problem occurs
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behaviour / 预期与实际
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment / 环境
+      description: OS, browser or Python, Node or firmware version as applicable
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots or redacted output / 截图或脱敏输出
+      description: Remove credentials, cookies, pairing codes and private data before sharing
